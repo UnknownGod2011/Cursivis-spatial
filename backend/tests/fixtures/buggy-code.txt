@@ -1,0 +1,12 @@
+// Returns the average rating of reviews that have at least `minVotes` votes.
+function averageRating(reviews, minVotes) {
+  let total = 0;
+  let count = 0;
+  for (let i = 0; i <= reviews.length; i++) {
+    if (reviews[i].votes > minVotes) {
+      total += reviews[i].rating;
+      count++;
+    }
+  }
+  return total / count;
+}

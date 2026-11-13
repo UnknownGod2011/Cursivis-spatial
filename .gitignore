@@ -1,0 +1,60 @@
+# ---------- Secrets (never commit) ----------
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+*.pem
+secrets/
+**/secrets.json
+backend/.vercel
+.vercel
+
+# ---------- Node ----------
+node_modules/
+npm-debug.log*
+coverage/
+backend/test-artifacts/
+
+# ---------- Unity ----------
+unity/CursivisSpatial/[Ll]ibrary/
+unity/CursivisSpatial/[Tt]emp/
+unity/CursivisSpatial/[Oo]bj/
+unity/CursivisSpatial/[Bb]uild/
+unity/CursivisSpatial/[Bb]uilds/
+unity/CursivisSpatial/[Ll]ogs/
+unity/CursivisSpatial/[Uu]ser[Ss]ettings/
+unity/CursivisSpatial/[Mm]emoryCaptures/
+unity/CursivisSpatial/[Rr]ecordings/
+unity/CursivisSpatial/*.csproj
+unity/CursivisSpatial/*.sln
+unity/CursivisSpatial/*.slnx
+unity/CursivisSpatial/.vs/
+unity/CursivisSpatial/.vscode/
+unity/CursivisSpatial/.idea/
+unity/CursivisSpatial/*.pidb.meta
+unity/CursivisSpatial/*.pdb.meta
+unity/CursivisSpatial/*.mdb.meta
+unity/CursivisSpatial/sysinfo.txt
+unity/CursivisSpatial/crashlytics-build.properties
+unity/CursivisSpatial/Assets/StreamingAssets/cursivis-dev.json
+unity/CursivisSpatial/Assets/StreamingAssets/cursivis-dev.json.meta
+
+# ---------- Build outputs ----------
+builds/
+*.apk
+*.aab
+*.idsig
+!release/*.apk
+
+# ---------- Captures / local test output ----------
+captures/
+test-results/local/
+*.vrs
+*.mp4
+!submission/media/*.mp4
+
+# ---------- OS ----------
+Thumbs.db
+Desktop.ini
+.DS_Store
