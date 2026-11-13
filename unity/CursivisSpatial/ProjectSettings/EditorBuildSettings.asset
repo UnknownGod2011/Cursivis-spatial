@@ -1,0 +1,13 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1045 &1
+EditorBuildSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Scenes:
+  - enabled: 1
+    path: Assets/Cursivis/Scenes/CursivisSpatial.unity
+    guid: ea5c1c88f350bc041b500e7fc9f0dfd5
+  m_configObjects:
+    com.unity.xr.management.loader_settings: {fileID: 11400000, guid: 6c9dc6d080b0b7f42b5f6c62b6495428, type: 2}
+    com.unity.xr.openxr.settings4: {fileID: 11400000, guid: 12367f4f59dd65a418c20b181fcd4232, type: 2}

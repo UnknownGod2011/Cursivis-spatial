@@ -58,3 +58,10 @@ test-results/local/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Build-time injected runtime config (backend URL + client token)
+unity/CursivisSpatial/Assets/Cursivis/Resources/CursivisRuntimeConfig.json
+unity/CursivisSpatial/Assets/Cursivis/Resources/CursivisRuntimeConfig.json.meta
+
+# SDK-generated copy of the Meta XR Operator OpenXR layer (recreated by the Core SDK on activation)
+unity/CursivisSpatial/Assets/XR/APILayers~/

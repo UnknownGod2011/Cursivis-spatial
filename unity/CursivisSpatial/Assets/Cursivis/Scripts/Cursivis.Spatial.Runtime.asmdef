@@ -1,0 +1,36 @@
+﻿{
+    "name":  "Cursivis.Spatial.Runtime",
+    "rootNamespace":  "Cursivis.Spatial",
+    "references":  [
+                       "Unity.TextMeshPro",
+                       "Unity.XR.Management",
+                       "Unity.XR.OpenXR",
+                       "Unity.RenderPipelines.Universal.Runtime",
+                       "Unity.RenderPipelines.Core.Runtime",
+                       "Oculus.VR",
+                       "Oculus.Interaction",
+                       "Oculus.Interaction.OVR",
+                       "meta.xr.mrutilitykit",
+                       "Meta.XR.EnvironmentDepth",
+                       "Oculus.Interaction.InterfaceSupport"
+                   ],
+    "includePlatforms":  [
+
+                         ],
+    "excludePlatforms":  [
+
+                         ],
+    "allowUnsafeCode":  false,
+    "overrideReferences":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "autoReferenced":  true,
+    "defineConstraints":  [
+
+                          ],
+    "versionDefines":  [
+
+                       ],
+    "noEngineReferences":  false
+}

@@ -1,0 +1,42 @@
+﻿{
+    "name":  "Cursivis.Spatial.Editor",
+    "rootNamespace":  "Cursivis.Spatial.EditorTools",
+    "references":  [
+                       "Cursivis.Spatial.Runtime",
+                       "Unity.XR.Management",
+                       "Unity.XR.Management.Editor",
+                       "Unity.XR.OpenXR",
+                       "Unity.XR.OpenXR.Editor",
+                       "Unity.RenderPipelines.Universal.Runtime",
+                       "Unity.RenderPipelines.Core.Runtime",
+                       "Unity.TextMeshPro",
+                       "Oculus.VR",
+                       "Oculus.VR.Editor",
+                       "Oculus.Interaction",
+                       "Oculus.Interaction.Editor",
+                       "Oculus.Interaction.OVR",
+                       "Oculus.Interaction.OVR.Editor",
+                       "meta.xr.mrutilitykit",
+                       "Meta.XR.EnvironmentDepth",
+                       "Oculus.Interaction.InterfaceSupport"
+                   ],
+    "includePlatforms":  [
+                             "Editor"
+                         ],
+    "excludePlatforms":  [
+
+                         ],
+    "allowUnsafeCode":  false,
+    "overrideReferences":  false,
+    "precompiledReferences":  [
+
+                              ],
+    "autoReferenced":  false,
+    "defineConstraints":  [
+
+                          ],
+    "versionDefines":  [
+
+                       ],
+    "noEngineReferences":  false
+}
