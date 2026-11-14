@@ -29,6 +29,16 @@ namespace Cursivis.Spatial.Capture
     public sealed class PassthroughCapture : MonoBehaviour
     {
         public PassthroughCameraAccess Camera;
+        /// <summary>OVRCameraRig tracking space: MRUK camera poses are relative to it, selection corners are world space.</summary>
+        public Transform TrackingSpace;
+
+        /// <summary>Camera pose of the latest frame, converted from tracking space to world space.</summary>
+        public Pose WorldCameraPose()
+        {
+            var p = Camera.GetCameraPose();
+            if (TrackingSpace == null) return p;
+            return new Pose(TrackingSpace.TransformPoint(p.position), TrackingSpace.rotation * p.rotation);
+        }
         public const int MaxSide = 1024;
         public const float ParallaxPad = 0.035f; // viewport padding to absorb eye/camera parallax and depth error
 
@@ -126,7 +136,7 @@ namespace Cursivis.Spatial.Capture
         {
             worldCorners = null;
             if (!IsReady) return false;
-            var pose = Camera.GetCameraPose();
+            var pose = WorldCameraPose();
             var vps = new[] { new Vector2(0, 0), new Vector2(0, 1), new Vector2(1, 1), new Vector2(1, 0) };
             worldCorners = new Vector3[4];
             for (int i = 0; i < 4; i++)
@@ -178,7 +188,7 @@ namespace Cursivis.Spatial.Capture
         {
             var t0 = Time.realtimeSinceStartup;
             if (!IsReady) throw new InvalidOperationException(LastError ?? "The passthrough camera is not running.");
-            var pose = Camera.GetCameraPose();
+            var pose = WorldCameraPose();
             var forward = pose.rotation * Vector3.forward;
             if (!TryProjectToViewport(worldCorners, w => Camera.WorldToViewportPoint(w, pose), w => Vector3.Dot(w - pose.position, forward) > 0.05f, ParallaxPad, out var vp, out var err))
                 throw new InvalidOperationException(err);

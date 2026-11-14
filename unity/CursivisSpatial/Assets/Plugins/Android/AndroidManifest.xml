@@ -1,4 +1,14 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!--
+  Cursivis Spatial (Meta Quest 3 / 3S). Based on the Meta XR Project Setup Tool output plus the Passthrough Camera API
+  sample manifest. Permissions are the minimum the app uses:
+    HAND_TRACKING        hands-first input (controllers optional)
+    HEADSET_CAMERA       Passthrough Camera API, requested at runtime only when the user taps Snip
+    USE_SCENE            Depth API raycast to place the snip surface on real surfaces (optional; app works without it)
+    RECORD_AUDIO         push-to-talk, requested at runtime only when the user holds Talk
+    INTERNET             the Cursivis AI backend
+  android.permission.CAMERA is deliberately NOT requested (HEADSET_CAMERA covers the passthrough cameras only).
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools" android:installLocation="auto" xmlns:horizonos="http://schemas.horizonos/sdk">
   <application android:label="@string/app_name" android:icon="@mipmap/app_icon" android:allowBackup="false">
     <activity android:theme="@style/Theme.AppCompat.DayNight.NoActionBar" android:configChanges="locale|fontScale|keyboard|keyboardHidden|mcc|mnc|navigation|orientation|screenLayout|screenSize|smallestScreenSize|touchscreen|uiMode" android:launchMode="singleTask" android:name="com.unity3d.player.UnityPlayerGameActivity" android:excludeFromRecents="true" android:exported="true">
@@ -11,10 +21,18 @@
     </activity>
     <meta-data android:name="unityplayer.SkipPermissionsDialog" android:value="false" />
     <meta-data android:name="com.oculus.useForwardHeadPose" android:value="true" />
-    <meta-data android:name="com.oculus.ossplash.background" android:value="black" />
-    <meta-data android:name="com.oculus.telemetry.project_guid" android:value="73134955-068c-45fd-9578-bfc63300a550" />
-    <meta-data android:name="com.oculus.supportedDevices" android:value="quest|quest2|questpro|quest3|quest3s|vrglasses" tools:replace="android:value" />
+    <meta-data android:name="com.oculus.ossplash.background" android:value="passthrough-contextual" />
+    <meta-data android:name="com.oculus.supportedDevices" android:value="quest3|quest3s" tools:replace="android:value" />
+    <meta-data android:name="com.oculus.handtracking.frequency" android:value="HIGH" />
+    <meta-data android:name="com.oculus.handtracking.version" android:value="V2.0" />
   </application>
   <uses-feature android:name="android.hardware.vr.headtracking" android:version="1" android:required="true" />
+  <uses-feature android:name="oculus.software.handtracking" android:required="false" />
+  <uses-permission android:name="com.oculus.permission.HAND_TRACKING" />
+  <uses-feature android:name="com.oculus.feature.PASSTHROUGH" android:required="true" />
+  <uses-permission android:name="com.oculus.permission.USE_SCENE" />
+  <uses-permission android:name="horizonos.permission.HEADSET_CAMERA" />
+  <uses-permission android:name="android.permission.RECORD_AUDIO" />
+  <uses-permission android:name="android.permission.INTERNET" />
   <horizonos:uses-horizonos-sdk horizonos:minSdkVersion="60" horizonos:targetSdkVersion="209" />
 </manifest>

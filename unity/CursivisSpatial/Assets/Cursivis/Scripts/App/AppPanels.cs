@@ -187,6 +187,36 @@ namespace Cursivis.Spatial.App
         public bool Visible => _anim != null && _anim.Visible;
     }
 
+    /// <summary>
+    /// "Photo taken" feedback for the frozen camera crop: a brief bright flash that settles while the crop eases
+    /// from 4 % larger into its exact captured footprint.
+    /// </summary>
+    public sealed class PreviewPop : MonoBehaviour
+    {
+        static readonly int BaseColor = Shader.PropertyToID("_BaseColor");
+        Vector3 _rest;
+        float _start = -10f;
+        Material _mat;
+
+        public void Play(Vector3 restScale)
+        {
+            _rest = restScale;
+            _start = Time.unscaledTime;
+            _mat = GetComponent<MeshRenderer>().material;
+            Step();
+        }
+
+        void Update() { if (Time.unscaledTime - _start < 0.5f) Step(); }
+
+        void Step()
+        {
+            float t = Mathf.Clamp01((Time.unscaledTime - _start) / 0.42f);
+            float e = Ease.OutCubic(t);
+            transform.localScale = Vector3.Lerp(_rest * 1.04f, _rest, e);
+            if (_mat != null) _mat.SetColor(BaseColor, Color.Lerp(new Color(1.8f, 1.8f, 1.8f, 1f), Color.white, e));
+        }
+    }
+
     /// <summary>Short, honest status messages (errors, permissions, tips). Non-interactive.</summary>
     public sealed class Toast : MonoBehaviour
     {

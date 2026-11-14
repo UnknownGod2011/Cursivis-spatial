@@ -60,6 +60,7 @@ namespace Cursivis.Spatial.EditorTools
             var rigObjects = OVRQuickActionsAPI.AddOVRInteractionRig(false);
             var cameraRig = UnityEngine.Object.FindFirstObjectByType<OVRCameraRig>();
             if (cameraRig == null) throw new Exception("OVRCameraRig was not created");
+            DisableLocomotion();
             var manager = cameraRig.GetComponent<OVRManager>() ?? cameraRig.gameObject.AddComponent<OVRManager>();
             manager.isInsightPassthroughEnabled = true;
             // Core SDK 209 always composites OVRPassthroughLayer as an underlay.
@@ -162,6 +163,44 @@ namespace Cursivis.Spatial.EditorTools
             Log($"Scene saved: {ScenePath}");
         }
 
+        /// <summary>
+        /// Cursivis Spatial is seated and stationary: the comprehensive rig's locomotion (teleport, turning and the
+        /// gravity-driven FirstPersonLocomotor) is disabled. Without a floor collider in an MR scene the locomotor
+        /// otherwise lets the camera rig fall away from all content.
+        /// </summary>
+        static void DisableLocomotion()
+        {
+            int n = 0;
+            foreach (var root in SceneManager.GetActiveScene().GetRootGameObjects())
+            {
+                foreach (var mb in root.GetComponentsInChildren<MonoBehaviour>(true))
+                {
+                    if (mb == null) continue;
+                    var tn = mb.GetType().Name;
+                    if (tn.Contains("Locomot") || tn.Contains("Teleport") || tn.Contains("Turner") || tn.Contains("SnapTurn") || tn.Contains("SmoothTurn"))
+                    {
+                        mb.enabled = false;
+                        EditorUtility.SetDirty(mb);
+                        n++;
+                    }
+                }
+                foreach (var cc in root.GetComponentsInChildren<CharacterController>(true))
+                {
+                    cc.enabled = false;
+                    n++;
+                }
+                foreach (var t in root.GetComponentsInChildren<Transform>(true))
+                {
+                    if (t.name == "Locomotor")
+                    {
+                        t.gameObject.SetActive(false);
+                        n++;
+                    }
+                }
+            }
+            Log($"locomotion disabled ({n} components/objects)");
+        }
+
         static Canvas MakeCanvas(Transform parent, string name, Vector2 size, bool ray, bool poke)
         {
             var go = new GameObject(name, typeof(RectTransform));
@@ -187,7 +226,7 @@ namespace Cursivis.Spatial.EditorTools
             var cfg = OVRProjectConfig.CachedProjectConfig;
             cfg.handTrackingSupport = OVRProjectConfig.HandTrackingSupport.ControllersAndHands;
             cfg.handTrackingFrequency = OVRProjectConfig.HandTrackingFrequency.HIGH;
-            cfg.insightPassthroughEnabled = true;
+            cfg.insightPassthroughSupport = OVRProjectConfig.FeatureSupport.Required; // (insightPassthroughEnabled is obsolete in v209)
             cfg.isPassthroughCameraAccessEnabled = true;
             cfg.sceneSupport = OVRProjectConfig.FeatureSupport.Supported;
             cfg.focusAware = true;

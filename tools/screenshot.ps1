@@ -5,7 +5,7 @@
   ./tools/screenshot.ps1 -Out test-results/local/shots/desk.png
   ./tools/screenshot.ps1 -Process MetaXRSimulator -Out test-results/local/shots/sim.png
 #>
-param([string]$Out = "test-results/local/shots/screen.png", [string]$Process = "", [int]$MaxWidth = 1600)
+param([string]$Out = "test-results/local/shots/screen.png", [string]$Process = "", [int]$MaxWidth = 1600, [string]$Crop = "")
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type @"
@@ -16,6 +16,7 @@ public static class CursivisWin {
   [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr h, out RECT r);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
+  [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
   [DllImport("user32.dll")] public static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
   [DllImport("user32.dll")] public static extern bool SetProcessDPIAware();
 }
@@ -27,7 +28,7 @@ if ($Process) {
   $p = Get-Process -Name $Process -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
   if (-not $p) { throw "No window for process $Process" }
   $h = $p.MainWindowHandle
-  [CursivisWin]::ShowWindow($h, 9) | Out-Null
+  [CursivisWin]::ShowWindow($h, $(if ([CursivisWin]::IsIconic($h)) { 9 } else { 5 })) | Out-Null
   $r = New-Object CursivisWin+RECT
   [CursivisWin]::GetWindowRect($h, [ref]$r) | Out-Null
   $w = $r.Right - $r.Left; $hgt = $r.Bottom - $r.Top
@@ -44,6 +45,8 @@ if ($Process) {
   $g.CopyFromScreen($b.Left, $b.Top, 0, 0, $bmp.Size)
 }
 $g.Dispose()
+$cp = @($Crop -split "[,; ]+" | Where-Object { $_ } | ForEach-Object { [int]$_ })
+if ($cp.Count -eq 4) { $c = $bmp.Clone((New-Object System.Drawing.Rectangle $cp[0], $cp[1], $cp[2], $cp[3]), $bmp.PixelFormat); $bmp.Dispose(); $bmp = $c }
 if ($bmp.Width -gt $MaxWidth) {
   $scale = $MaxWidth / $bmp.Width
   $small = New-Object System.Drawing.Bitmap ([int]($bmp.Width * $scale)), ([int]($bmp.Height * $scale))

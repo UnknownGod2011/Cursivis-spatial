@@ -28,12 +28,15 @@ namespace Cursivis.Spatial
     {
         static readonly Dictionary<FlowState, FlowState[]> Allowed = new Dictionary<FlowState, FlowState[]>
         {
-            { FlowState.Idle, new[] { FlowState.SelectionReady, FlowState.SelectionConfirmed, FlowState.VoiceListening } },
+            // Idle -> Processing: typed general requests (follow-up chips / voice client actions) without a selection.
+            { FlowState.Idle, new[] { FlowState.SelectionReady, FlowState.SelectionConfirmed, FlowState.VoiceListening, FlowState.Processing } },
             { FlowState.SelectionReady, new[] { FlowState.Selecting, FlowState.Idle, FlowState.SelectionConfirmed } },
             { FlowState.Selecting, new[] { FlowState.SelectionConfirmed, FlowState.SelectionReady, FlowState.Idle } },
-            { FlowState.SelectionConfirmed, new[] { FlowState.Understanding, FlowState.SelectionReady, FlowState.SelectionConfirmed, FlowState.Idle, FlowState.VoiceListening } },
-            { FlowState.Understanding, new[] { FlowState.SuggestionsVisible, FlowState.SelectionConfirmed, FlowState.VoiceListening, FlowState.Idle, FlowState.SelectionReady } },
-            { FlowState.SuggestionsVisible, new[] { FlowState.ActionSelected, FlowState.VoiceListening, FlowState.SelectionConfirmed, FlowState.SelectionReady, FlowState.Idle, FlowState.Understanding } },
+            // -> Processing from SelectionConfirmed / Understanding / SuggestionsVisible: a typed Talk request
+            // (follow-up chip, voice client action) about the current selection skips VoiceListening.
+            { FlowState.SelectionConfirmed, new[] { FlowState.Understanding, FlowState.SelectionReady, FlowState.SelectionConfirmed, FlowState.Idle, FlowState.VoiceListening, FlowState.Processing } },
+            { FlowState.Understanding, new[] { FlowState.SuggestionsVisible, FlowState.SelectionConfirmed, FlowState.VoiceListening, FlowState.Idle, FlowState.SelectionReady, FlowState.Processing } },
+            { FlowState.SuggestionsVisible, new[] { FlowState.ActionSelected, FlowState.VoiceListening, FlowState.SelectionConfirmed, FlowState.SelectionReady, FlowState.Idle, FlowState.Understanding, FlowState.Processing } },
             { FlowState.ActionSelected, new[] { FlowState.Processing, FlowState.SuggestionsVisible, FlowState.Idle } },
             { FlowState.VoiceListening, new[] { FlowState.Processing, FlowState.SuggestionsVisible, FlowState.ResultVisible, FlowState.SelectionConfirmed, FlowState.Idle } },
             { FlowState.Processing, new[] { FlowState.ResultVisible, FlowState.SuggestionsVisible, FlowState.SelectionConfirmed, FlowState.Idle, FlowState.SelectionReady } },

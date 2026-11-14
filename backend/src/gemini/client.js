@@ -1,13 +1,16 @@
 // Gemini REST client with key rotation, model fallback, per-attempt timeouts and hedged requests.
 //
 // Retry policy (per logical request):
-//   auth / quota / timeout / transient -> same model, next healthy key
+//   auth / quota / transient           -> same model, next healthy key
+//   timeout                            -> next model in the chain (a slow model tends to stay slow), new key
 //   overloaded (503) / model missing   -> next model in the chain (model is marked unhealthy for a while)
 //   invalid (400)                      -> retry once in "compat" mode (no thinkingConfig / JSON schema), then next model
 //   bad_output (schema validation)     -> next model once, then fail
 //   safety                             -> fail immediately
 // Hedging: if the first attempt has not finished after `hedgeAfterMs`, a second attempt is launched on a
-// different key (and, if available, the next model). The first valid result wins; the other is aborted.
+// different key (and, if available, the next model). From then on two attempts stay in flight: when one
+// fails while the other is still running, a replacement is launched straight away instead of waiting for
+// the slow one. The first valid result wins; the others are aborted.
 
 import { GeminiError, classify, parseRetryAfterMs } from "./errors.js";
 
@@ -127,6 +130,8 @@ export function createGeminiClient({ pool, fetchImpl = globalThis.fetch, attempt
     const triedKeysByModel = new Map(models.map((m) => [m, new Set()]));
     const compatModels = new Set();
     const badOutputModels = new Set();
+    // Models that failed model-wide during this request (overloaded, missing, timed out): skipped when moving on.
+    const slowModels = new Set();
     let modelIndex = 0;
     let hedged = false;
     let lastFailure = null;
@@ -136,9 +141,14 @@ export function createGeminiClient({ pool, fetchImpl = globalThis.fetch, attempt
 
     const nextModelIndex = () => {
       for (let i = modelIndex + 1; i < models.length; i++) {
-        if (!badOutputModels.has(models[i])) return i;
+        if (!badOutputModels.has(models[i]) && !slowModels.has(models[i])) return i;
       }
       return -1;
+    };
+    const advancePast = (model) => {
+      if (models[modelIndex] !== model) return;
+      const n = nextModelIndex();
+      if (n >= 0) modelIndex = n;
     };
 
     const launch = (preferNextModel = false) => {
@@ -217,8 +227,11 @@ export function createGeminiClient({ pool, fetchImpl = globalThis.fetch, attempt
         }
         if (r.category === "overloaded" || r.category === "model") {
           pool.markModel(r.model, r.category);
-          const n = nextModelIndex();
-          if (n >= 0 && models[modelIndex] === r.model) modelIndex = n;
+          slowModels.add(r.model);
+          advancePast(r.model);
+        } else if (r.category === "timeout") {
+          slowModels.add(r.model);
+          advancePast(r.model);
         } else if (r.category === "invalid") {
           if (!compatModels.has(r.model)) {
             compatModels.add(r.model);
@@ -234,6 +247,11 @@ export function createGeminiClient({ pool, fetchImpl = globalThis.fetch, attempt
           else if (badOutputModels.size >= 2) {
             throw new GeminiError(`Model output failed validation: ${r.detail || ""}`, { category: "bad_output", model: r.model });
           }
+        }
+        if (hedged && inflight.size === 1) {
+          // Past the hedge point and one attempt just failed: keep a second attempt racing the survivor.
+          if (launch(true)) trace.push("rehedge");
+          continue;
         }
         if (inflight.size === 0) {
           if (!launch()) {

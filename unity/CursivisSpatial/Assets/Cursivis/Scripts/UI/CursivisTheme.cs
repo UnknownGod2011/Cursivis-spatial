@@ -107,9 +107,14 @@ namespace Cursivis.Spatial.UI
         };
 
         static bool _dark = true;
-        public static Palette P => _dark ? Dark : Light;
+        static Palette _blend;
+        static bool _transitioning;
+        public static Palette P => _transitioning && _blend != null ? _blend : (_dark ? Dark : Light);
         public static bool IsDark => _dark;
+        /// <summary>True while the 240 ms theme cross-fade runs (handlers can skip expensive work until it ends).</summary>
+        public static bool IsTransitioning => _transitioning;
         public static event Action Changed;
+        public const float ThemeFadeSec = 0.24f;
 
         public static void Load()
         {
@@ -119,13 +124,21 @@ namespace Cursivis.Spatial.UI
         public static void SetDark(bool dark)
         {
             if (_dark == dark) return;
+            var from = P;
             _dark = dark;
             PlayerPrefs.SetInt("cursivis.theme.dark", dark ? 1 : 0);
             PlayerPrefs.Save();
-            Changed?.Invoke();
+            ThemeFader.Run(from, dark ? Dark : Light);
         }
 
         public static void Toggle() => SetDark(!_dark);
+
+        internal static void SetBlend(Palette blend, bool transitioning)
+        {
+            _blend = blend;
+            _transitioning = transitioning;
+            Changed?.Invoke();
+        }
 
         public static Color Hex(string hex)
         {
@@ -134,6 +147,57 @@ namespace Cursivis.Spatial.UI
         }
 
         public static Color WithAlpha(Color c, float a) => new Color(c.r, c.g, c.b, a);
+    }
+
+    /// <summary>
+    /// Cross-fades every themed surface between palettes (the original switched instantly; a short fade reads better
+    /// in a headset where large panels suddenly flipping from dark to white is uncomfortable).
+    /// </summary>
+    public sealed class ThemeFader : MonoBehaviour
+    {
+        static ThemeFader _instance;
+        static readonly System.Reflection.FieldInfo[] ColorFields = Array.FindAll(typeof(Palette).GetFields(), f => f.FieldType == typeof(Color));
+        static readonly System.Reflection.FieldInfo[] FloatFields = Array.FindAll(typeof(Palette).GetFields(), f => f.FieldType == typeof(float));
+        Palette _from, _to;
+        readonly Palette _blend = new Palette();
+        float _t = 1f;
+
+        public static void Run(Palette from, Palette to)
+        {
+            if (_instance == null)
+            {
+                var go = new GameObject("CursivisThemeFader");
+                DontDestroyOnLoad(go);
+                _instance = go.AddComponent<ThemeFader>();
+            }
+            _instance._from = from == _instance._blend ? Copy(from) : from;
+            _instance._to = to;
+            _instance._t = 0f;
+            _instance._blend.IsDark = to.IsDark;
+            _instance.Step(0f);
+        }
+
+        static Palette Copy(Palette p)
+        {
+            var c = new Palette { IsDark = p.IsDark };
+            foreach (var f in ColorFields) f.SetValue(c, f.GetValue(p));
+            foreach (var f in FloatFields) f.SetValue(c, f.GetValue(p));
+            return c;
+        }
+
+        void Step(float dt)
+        {
+            _t = Mathf.Min(1f, _t + dt / CursivisTheme.ThemeFadeSec);
+            float e = Ease.OutCubic(_t);
+            foreach (var f in ColorFields) f.SetValue(_blend, Color.Lerp((Color)f.GetValue(_from), (Color)f.GetValue(_to), e));
+            foreach (var f in FloatFields) f.SetValue(_blend, Mathf.Lerp((float)f.GetValue(_from), (float)f.GetValue(_to), e));
+            CursivisTheme.SetBlend(_blend, _t < 1f);
+        }
+
+        void Update()
+        {
+            if (_t < 1f) Step(Time.unscaledDeltaTime);
+        }
     }
 
     /// <summary>Material Icons (Apache-2.0) codepoints used by the UI.</summary>

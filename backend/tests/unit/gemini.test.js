@@ -121,6 +121,32 @@ test("times out attempts and reports a deadline", async () => {
   await assert.rejects(() => client.generate({ contents: [] }, { models: ["m"], deadlineMs: 600 }), (e) => ["deadline", "timeout", "quota"].includes(e.category));
 });
 
+test("re-hedges straight away when the hedge fails fast while the primary is still slow", async () => {
+  const pool = new KeyPool([KEY(0), KEY(1), KEY(2)]);
+  const fetchImpl = fakeFetch((call) => {
+    if (call.model === "slow") return { ...geminiOk("slow"), delayMs: 2500 };
+    if (call.model === "busy") return geminiErr(503, "UNAVAILABLE", "high demand");
+    return geminiOk(`from ${call.model}`);
+  });
+  const client = createGeminiClient({ pool, fetchImpl, attemptTimeoutMs: 4000 });
+  const started = Date.now();
+  const r = await client.generate({ contents: [] }, { models: ["slow", "busy", "spare"], deadlineMs: 6000, hedgeAfterMs: 100 });
+  assert.equal(r.model, "spare");
+  assert.ok(Date.now() - started < 1500, "did not wait for the slow primary after the hedge failed");
+  assert.ok(r.trace.includes("rehedge"));
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  assert.equal(pool.entries.reduce((n, e) => n + e.inFlight, 0), 0, "no leaked in-flight slots");
+});
+
+test("an attempt timeout moves to the next model instead of retrying the slow one", async () => {
+  const pool = new KeyPool([KEY(0), KEY(1), KEY(2)]);
+  const fetchImpl = fakeFetch((call) => (call.model === "stuck" ? { ...geminiOk("late"), delayMs: 3000 } : geminiOk(`from ${call.model}`)));
+  const client = createGeminiClient({ pool, fetchImpl, attemptTimeoutMs: 200 });
+  const r = await client.generate({ contents: [] }, { models: ["stuck", "next"], deadlineMs: 3000 });
+  assert.equal(r.model, "next");
+  assert.equal(fetchImpl.calls.filter((c) => c.model === "stuck").length, 1, "the timed-out model was not retried");
+});
+
 test("thinkingLevel is only sent to models that support it", () => {
   const req = { contents: [], thinkingLevel: "minimal", generationConfig: {} };
   assert.deepEqual(buildRequestBody(req, "gemini-3.6-flash", false).generationConfig.thinkingConfig, { thinkingLevel: "minimal" });

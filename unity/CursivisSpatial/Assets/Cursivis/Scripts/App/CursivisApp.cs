@@ -73,17 +73,30 @@ namespace Cursivis.Spatial.App
         Vector3 _homeAnchor;
         float _noTrackingSince = -1f;
         bool _pendingFeedbackMeasure;
+        OVRCameraRig _rig;
 
         void Awake()
         {
             Instance = this;
 #if UNITY_STANDALONE_WIN && !UNITY_EDITOR
             // Desktop simulator builds only: integrated GPUs can't render Quest 3 resolution x2 eyes with 4x MSAA.
-            // Quest builds keep full resolution and MSAA.
-            UnityEngine.XR.XRSettings.eyeTextureResolutionScale = 0.6f;
+            // Quest builds keep full resolution and MSAA. The simulator shows the eye view itself, so the desktop
+            // mirror window is not rendered.
+            float eyeScale = 0.5f;
+            foreach (var arg in Environment.GetCommandLineArgs())
+                if (arg.StartsWith("--cursivis-eye-scale=") && float.TryParse(arg.Substring(21), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var s)) eyeScale = Mathf.Clamp(s, 0.25f, 1f);
+            UnityEngine.XR.XRSettings.eyeTextureResolutionScale = eyeScale;
+            UnityEngine.XR.XRSettings.gameViewRenderMode = UnityEngine.XR.GameViewRenderMode.None;
             if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline is UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset urp) urp.msaaSampleCount = 1;
 #endif
             CursivisTheme.Load();
+            // Safety net for the seated experience: never let rig locomotion (gravity locomotor, teleport, turning) run.
+            foreach (var mb in FindObjectsByType<MonoBehaviour>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+            {
+                var tn = mb.GetType().Name;
+                if (tn == "FirstPersonLocomotor" || tn.Contains("Teleport") || tn.Contains("Turner")) mb.enabled = false;
+            }
+            foreach (var cc in FindObjectsByType<CharacterController>(FindObjectsInactive.Include, FindObjectsSortMode.None)) cc.enabled = false;
             _config = CursivisConfig.Instance;
             _api = new CursivisApi(_config);
             _lifetimeCts = new CancellationTokenSource();
@@ -92,6 +105,14 @@ namespace Cursivis.Spatial.App
 
             _capture = gameObject.AddComponent<PassthroughCapture>();
             _capture.Camera = CameraAccess;
+            // MRUK reports camera and raycast poses in tracking space; our selection corners live in world space.
+            var rig = FindFirstObjectByType<OVRCameraRig>();
+            _rig = rig;
+            if (rig != null)
+            {
+                _capture.TrackingSpace = rig.trackingSpace;
+                if (EnvironmentRaycast != null) EnvironmentRaycast.CustomTrackingSpace = rig.trackingSpace;
+            }
             if (CameraAccess != null) CameraAccess.enabled = false;
             _voice = gameObject.AddComponent<VoiceCapture>();
             _voice.AutoStopped += OnVoiceAutoStopped;
@@ -109,15 +130,21 @@ namespace Cursivis.Spatial.App
 
             BuildUi();
             Flow.Changed += (from, to) => OnFlowChanged(from, to);
+            // Changed fires every frame of the cross-fade; log once when the fade has finished.
+            CursivisTheme.Changed += () => { if (Debug.isDebugBuild && !CursivisTheme.IsTransitioning) LogDiagnostics("theme " + (CursivisTheme.IsDark ? "dark" : "light")); };
         }
 
-        void Start()
+        System.Collections.IEnumerator Start()
         {
+            _hud.Orb.SetMood(OrbMood.Idle, null);
+            _ = HealthLoop(_lifetimeCts.Token);
+            // Wait for a tracked head pose before placing anything (the first frames report the origin).
+            float t0 = Time.realtimeSinceStartup;
+            while (Time.realtimeSinceStartup - t0 < 4f && (Head == null || Head.position.sqrMagnitude < 0.01f || Time.frameCount < 20)) yield return null;
             RecenterHome(true);
             PlaceWorkspace();
-            _hud.Orb.SetMood(OrbMood.Idle, null);
             if (PlayerPrefs.GetInt("cursivis.onboarded", 0) == 0) ShowOnboarding();
-            _ = HealthLoop(_lifetimeCts.Token);
+            CursivisAutopilot.InstallIfRequested(this);
             Debug.Log($"[Cursivis] started v{CursivisVersion.Version} backend={(string.IsNullOrEmpty(_config.backendUrl) ? "<none>" : new Uri(_config.backendUrl).Host)} platform={Application.platform}");
         }
 
@@ -396,6 +423,8 @@ namespace Cursivis.Spatial.App
             var mat = PreviewQuad.material;
             mat.mainTexture = sel.Preview;
             PreviewQuad.gameObject.SetActive(true);
+            var pop = PreviewQuad.GetComponent<PreviewPop>() ?? PreviewQuad.gameObject.AddComponent<PreviewPop>();
+            pop.Play(PreviewQuad.transform.localScale);
             _ = normal;
         }
 
@@ -745,7 +774,13 @@ namespace Cursivis.Spatial.App
         {
             var sel = context ? _selection : null;
             CursivisMetrics.Mark("talk_sent");
-            Flow.Go(Flow.State == FlowState.ResultVisible && typed != null ? FlowState.FollowUp : FlowState.Processing, wav != null ? "voice sent" : "typed follow-up");
+            var sending = Flow.State == FlowState.ResultVisible && typed != null ? FlowState.FollowUp : FlowState.Processing;
+            if (!Flow.Go(sending, wav != null ? "voice sent" : "typed follow-up"))
+            {
+                // Never run a request the state machine does not know about (it would leave the UI out of sync).
+                Toast("Cursivis is busy. Try again in a moment.");
+                return;
+            }
             _hud.Orb.SetMood(OrbMood.ProcessingVoice, wav != null ? "Thinking about what you said\u2026" : "Working\u2026");
             _hud.SetHint("");
             if (!context) { _orbHome = true; }
@@ -843,9 +878,13 @@ namespace Cursivis.Spatial.App
             _voice.Cancel();
             _card.Hide();
             _hud.ShowRing(false);
+            if (Flow.State == FlowState.SelectionReady || Flow.State == FlowState.Selecting) EndSnipMode();
+            if (!_workspace.Shown) _workspace.SetShown(true);
             ClearSelection(false);
-            Flow.Go(FlowState.Dismissed, "dismiss");
+            if (!Flow.Go(FlowState.Dismissed, "dismiss")) Flow.Reset();
             Flow.Go(FlowState.Idle, "dismissed");
+            _hud.Orb.SetMood(OrbMood.Idle, Online ? null : "Offline");
+            if (Debug.isDebugBuild) LogDiagnostics("dismiss");
         }
 
         // ------------------------------------------------------------------ placement
@@ -887,6 +926,7 @@ namespace Cursivis.Spatial.App
                 var pos = head.position + rot * Vector3.forward * 1.0f + Vector3.down * 0.06f;
                 WorkspaceCanvases[i].transform.SetPositionAndRotation(pos, Quaternion.LookRotation(pos - head.position, Vector3.up));
             }
+            AnchorLayout(head.position);
         }
 
         void PlaceInFront(Transform t, float distance, float up, float right)
@@ -897,39 +937,79 @@ namespace Cursivis.Spatial.App
             t.SetPositionAndRotation(pos, Quaternion.LookRotation(pos - head.position, Vector3.up));
         }
 
+        /// <summary>Yaw (degrees, + = right) and pitch (+ = up) of a world point around the head, relative to the head's heading.</summary>
+        static Vector2 HeadAngles(Pose head, Vector3 point, out float distance)
+        {
+            var local = Quaternion.Inverse(YawOnly(head.rotation)) * (point - head.position);
+            distance = local.magnitude;
+            float flat = new Vector2(local.x, local.z).magnitude;
+            return new Vector2(Mathf.Atan2(local.x, local.z) * Mathf.Rad2Deg, Mathf.Atan2(local.y, Mathf.Max(flat, 1e-4f)) * Mathf.Rad2Deg);
+        }
+
+        static Vector3 FromHeadAngles(Pose head, float yaw, float pitch, float distance)
+            => head.position + YawOnly(head.rotation) * (Quaternion.Euler(-pitch, yaw, 0f) * Vector3.forward) * distance;
+
         void PlaceForSelection(CursivisSelection sel)
         {
+            // The orb hugs the edge of the selection that faces the centre of the view, slightly in front of it, so the
+            // selection, the orb and its chip ring stay inside a comfortable +-30 degree cone.
             var head = HeadPose();
-            var anchor = sel.Center;
-            var toAnchor = anchor - head.position;
-            var dist = toAnchor.magnitude;
-            var dir = toAnchor / Mathf.Max(dist, 0.01f);
-            var headYaw = YawOnly(head.rotation);
-            var localDir = Quaternion.Inverse(headYaw) * dir;
-            float side = localDir.x > 0.25f ? -1f : 1f; // keep the orb toward the center of the view
-            var right = Vector3.Cross(Vector3.up, dir).normalized;
-            float orbDist = Mathf.Clamp(dist * 0.85f, 0.5f, 0.72f);
-            float halfW = Mathf.Min(sel.WorldWidth * 0.5f * (orbDist / Mathf.Max(dist, 0.01f)), 0.2f);
-            var pos = head.position + dir * orbDist + right * side * (halfW + 0.2f);
-            pos.y = Mathf.Clamp(pos.y, head.position.y - 0.32f, head.position.y + 0.08f);
-            _orbTarget = pos;
-            _orbRotTarget = Quaternion.LookRotation(pos - head.position, Vector3.up);
+            var a = HeadAngles(head, sel.Center, out var dist);
+            float halfAngle = Mathf.Atan2(sel.WorldWidth * 0.5f, Mathf.Max(dist, 0.05f)) * Mathf.Rad2Deg;
+            float side = a.x > 3f ? -1f : 1f;
+            float orbYaw = Mathf.Clamp(a.x + side * Mathf.Max(halfAngle - 2f, 3f), -24f, 24f);
+            float orbPitch = Mathf.Clamp(a.y - 2f, -24f, 6f);
+            float orbDist = Mathf.Clamp(dist * 0.62f, 0.5f, 0.66f);
+            _orbTarget = FromHeadAngles(head, orbYaw, orbPitch, orbDist);
+            _orbRotTarget = Quaternion.LookRotation(_orbTarget - head.position, Vector3.up);
         }
 
         void PlaceCard()
         {
             if (_card.Visible && _pinned) return;
+            // The card goes on the far side of the orb from the selection (so the selection stays visible), clamped
+            // near the centre of the view: the card is ~38 degrees wide at 0.8 m.
             var head = HeadPose();
-            var orb = OrbCanvas.transform.position;
-            var dirOrb = (orb - head.position);
-            dirOrb.y = 0;
-            dirOrb = dirOrb.sqrMagnitude < 1e-4 ? YawOnly(head.rotation) * Vector3.forward : dirOrb.normalized;
-            var localX = Vector3.Dot(Quaternion.Inverse(YawOnly(head.rotation)) * dirOrb, Vector3.right);
-            float yawOffset = _orbHome ? -22f : (localX >= 0 ? 24f : -24f);
-            var dir = Quaternion.Euler(0, yawOffset, 0) * dirOrb;
-            var pos = head.position + dir * 0.78f;
-            pos.y = head.position.y - 0.06f;
+            float orbYaw = HeadAngles(head, _orbTarget, out _).x;
+            float cardYaw = _orbHome ? orbYaw - 22f : (orbYaw >= 0f ? orbYaw - 21f : orbYaw + 21f);
+            cardYaw = Mathf.Clamp(cardYaw, -18f, 18f);
+            var pos = FromHeadAngles(head, cardYaw, 0f, 0.8f) + Vector3.down * 0.05f;
             ResultRoot.SetPositionAndRotation(pos, Quaternion.LookRotation(pos - head.position, Vector3.up));
+        }
+
+        // Seated layout safety net: if the head ends up far from where the layout was built (the user moved, a
+        // recenter, or a simulator pose jump), carry the head-relative UI along so it stays within reach.
+        Vector3 _layoutAnchor;
+        bool _layoutAnchored;
+
+        void AnchorLayout(Vector3 headPosition)
+        {
+            _layoutAnchor = headPosition;
+            _layoutAnchored = true;
+        }
+
+        void FollowHeadTranslation(Pose head)
+        {
+            if (!_layoutAnchored) return;
+            var delta = head.position - _layoutAnchor;
+            if (delta.sqrMagnitude < 0.45f * 0.45f) return;
+            _layoutAnchor = head.position;
+            if (WorkspaceCanvases != null) foreach (var c in WorkspaceCanvases) if (c != null) c.transform.position += delta;
+            if (_orbHome) RecenterHome(false); // re-derives the home orb and toast from the current head pose
+            else
+            {
+                OrbCanvas.transform.position += delta;
+                _orbTarget += delta;
+                _homeAnchor += delta;
+                if (ToastCanvas != null) ToastCanvas.transform.position += delta;
+            }
+            ResultRoot.position += delta;
+            if (ChipCanvas != null) ChipCanvas.transform.position += delta;
+            if (OnboardingCanvas != null) OnboardingCanvas.transform.position += delta;
+            if (_selection != null && _selection.Source == SelectionSource.Workspace && _selection.WorldCorners != null)
+                for (int i = 0; i < _selection.WorldCorners.Length; i++) _selection.WorldCorners[i] += delta;
+            CursivisMetrics.Count("layout_follow");
+            if (Debug.isDebugBuild) Debug.Log($"[CursivisDiag] layout followed head by ({delta.x:0.00},{delta.y:0.00},{delta.z:0.00})");
         }
 
         void LateUpdate()
@@ -940,6 +1020,7 @@ namespace Cursivis.Spatial.App
                 CursivisMetrics.Since("trigger", "trigger_feedback_ms");
             }
             var head = HeadPose();
+            FollowHeadTranslation(head);
             if (_orbHome && Flow.State != FlowState.VoiceListening)
             {
                 // lazy follow: re-center when the user turns more than 30 degrees or moves 35 cm
@@ -964,6 +1045,29 @@ namespace Cursivis.Spatial.App
             if (Flow.State == FlowState.SelectionReady && Time.frameCount % 10 == 0) UpdateCameraFrame();
             _hud.Orb.VoiceLevel = _voice.IsRecording ? _voice.Level : 0f;
             MonitorTracking();
+            if (Debug.isDebugBuild && Time.realtimeSinceStartup - _lastDiag > 3f) LogDiagnostics("tick");
+        }
+
+        float _lastDiag;
+
+        /// <summary>Development builds: where things are relative to the head (for simulator/automation debugging).</summary>
+        public void LogDiagnostics(string reason)
+        {
+            _lastDiag = Time.realtimeSinceStartup;
+            var head = HeadPose();
+            var fwd = head.rotation * Vector3.forward;
+            string Describe(Transform t)
+            {
+                if (t == null) return "null";
+                var d = t.position - head.position;
+                return $"{(t.gameObject.activeInHierarchy ? "on" : "off")} d={d.magnitude:0.00} ang={Vector3.Angle(fwd, d):0}";
+            }
+            // rig = OVRCameraRig root (moves only through locomotion), local = head inside the tracking space (runtime pose)
+            string rigInfo = _rig == null ? "" : $"rig=({_rig.transform.position.x:0.00},{_rig.transform.position.y:0.00},{_rig.transform.position.z:0.00}) " +
+                (_rig.trackingSpace != null && Head != null ? $"local=({_rig.trackingSpace.InverseTransformPoint(Head.position).x:0.00},{_rig.trackingSpace.InverseTransformPoint(Head.position).y:0.00},{_rig.trackingSpace.InverseTransformPoint(Head.position).z:0.00}) " : "");
+            Debug.Log($"[CursivisDiag] {reason} state={Flow.State} head=({head.position.x:0.00},{head.position.y:0.00},{head.position.z:0.00}) yaw={head.rotation.eulerAngles.y:0} {rigInfo}" +
+                      $"orb[{Describe(OrbCanvas.transform)}] ws0[{Describe(WorkspaceCanvases != null && WorkspaceCanvases.Length > 0 ? WorkspaceCanvases[0].transform : null)}] " +
+                      $"card[{(Card != null && Card.Visible ? "visible" : "hidden")} {Describe(ResultRoot)}] fps={(CursivisMetrics.Instance != null ? CursivisMetrics.Instance.CurrentFps : 0f):0.0}");
         }
 
         void MonitorTracking()
@@ -1047,6 +1151,7 @@ namespace Cursivis.Spatial.App
         public Task AutomationBeginSnip() => BeginSnipAsync();
         public void AutomationReadAloud() => ToggleReadAloud();
         public bool IsSpeaking => _speech.IsSpeaking;
+        public bool IsAudioPlaying => _speech.Source != null && _speech.Source.isPlaying;
         public void AutomationDismissOnboarding() { if (_onboarding.Visible) CloseOnboarding(); }
         public void AutomationTalkPress(bool context) => OnTalkPressed(context);
         public void AutomationTalkRelease() => OnTalkReleased();

@@ -24,7 +24,9 @@ namespace Cursivis.Spatial.UI
         OrbMood _mood = OrbMood.Idle;
         float _baseScale = 0.88f, _fromScale = 0.88f, _targetScale = 0.88f, _scaleT = 1f;
         float _spin, _arc, _arcTarget, _listen, _listenTarget, _level, _err, _errTarget, _glow, _glowTarget;
-        float _burstStart = -10f;
+        float _burstStart = -10f, _popStart = -10f, _shakeStart = -10f;
+        string _shineText;
+        int _shineFrame;
         float _shineT;
         public float VoiceLevel { get; set; }
         public OrbMood Mood => _mood;
@@ -82,14 +84,14 @@ namespace Cursivis.Spatial.UI
             switch (mood)
             {
                 case OrbMood.Idle: ScaleTo(0.88f); _arcTarget = 0f; _listenTarget = 0f; _errTarget = 0f; _glowTarget = 0f; break;
-                case OrbMood.Acknowledged: ScaleTo(1.0f); _glowTarget = 1f; _arcTarget = 0f; _listenTarget = 0f; _errTarget = 0f; break;
+                case OrbMood.Acknowledged: ScaleTo(1.0f); _glowTarget = 1f; _arcTarget = 0f; _listenTarget = 0f; _errTarget = 0f; _popStart = Time.unscaledTime; break;
                 case OrbMood.Understanding: ScaleTo(1.0f); _arcTarget = 1f; _glowTarget = 0.35f; _listenTarget = 0f; _errTarget = 0f; break;
                 case OrbMood.Listening: ScaleTo(1.0f); _arcTarget = 0f; _listenTarget = 1f; _glowTarget = 0f; _errTarget = 0f; break;
                 case OrbMood.ProcessingVoice:
                 case OrbMood.Processing: ScaleTo(1.0f); _arcTarget = 1f; _listenTarget = 0f; _glowTarget = 0.2f; _errTarget = 0f; break;
                 case OrbMood.Speaking: ScaleTo(1.0f); _arcTarget = 0f; _listenTarget = 0.55f; _glowTarget = 0f; _errTarget = 0f; break;
                 case OrbMood.Completed: ScaleTo(0.98f); _arcTarget = 0f; _listenTarget = 0f; _glowTarget = 0f; _errTarget = 0f; _burstStart = Time.time; break;
-                case OrbMood.Error: ScaleTo(0.98f); _arcTarget = 0f; _listenTarget = 0f; _glowTarget = 0f; _errTarget = 1f; break;
+                case OrbMood.Error: ScaleTo(0.98f); _arcTarget = 0f; _listenTarget = 0f; _glowTarget = 0f; _errTarget = 1f; _shakeStart = Time.unscaledTime; break;
             }
         }
 
@@ -116,7 +118,16 @@ namespace Cursivis.Spatial.UI
                 float ph = Mathf.PingPong(Time.time / CursivisTheme.OrbPulseHalfSec, 1f);
                 scale = Mathf.Max(_baseScale, 0.96f) + 0.07f * (_mood == OrbMood.Listening ? Mathf.Lerp(0.35f, 1f, VoiceLevel) * ph : ph);
             }
-            if (Root != null) Root.localScale = Vector3.one * scale;
+            else if (_mood == OrbMood.Idle || _mood == OrbMood.Completed)
+                scale += 0.012f * Mathf.Sin(Time.unscaledTime * (2f * Mathf.PI / 4.6f)); // calm idle breathing
+            float pop = Time.unscaledTime - _popStart;
+            if (pop < 0.45f) scale *= 1f + 0.09f * Mathf.Sin(Mathf.Clamp01(pop / 0.45f) * Mathf.PI) * (1f - pop / 0.45f * 0.4f);
+            if (Root != null)
+            {
+                Root.localScale = Vector3.one * scale;
+                float shake = Time.unscaledTime - _shakeStart;
+                Root.anchoredPosition = shake < 0.42f ? new Vector2(Mathf.Sin(shake * 52f) * 3.2f * (1f - shake / 0.42f), 0f) : Vector2.zero;
+            }
 
             float k = 1f - Mathf.Exp(-dt * 8f);
             _arc = Mathf.Lerp(_arc, _arcTarget, k);
@@ -175,8 +186,9 @@ namespace Cursivis.Spatial.UI
             }
             float period = _mood == OrbMood.Listening ? 2.0f : 2.35f;
             _shineT = (Time.time % period) / period;
-            // Animated silver sweep via vertex colors (cheap, no extra material).
-            Status.ForceMeshUpdate();
+            // Animated silver sweep via vertex colors (cheap, no extra material). The mesh is rebuilt only when the
+            // text changes (or occasionally, in case TMP regenerated it); otherwise only colors are re-uploaded.
+            if (_shineText != Status.text || ++_shineFrame % 30 == 0) { Status.ForceMeshUpdate(); _shineText = Status.text; }
             var info = Status.textInfo;
             float minX = float.MaxValue, maxX = float.MinValue;
             for (int i = 0; i < info.characterCount; i++)

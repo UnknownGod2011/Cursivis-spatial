@@ -87,6 +87,21 @@ namespace Cursivis.Spatial.UI
         static AudioClip _click, _confirm;
         static AudioSource _uiAudio;
 
+        /// <summary>
+        /// One exact step of a critically damped spring (x'' = -w^2 (x - target) - 2 w x'). Unconditionally stable,
+        /// so a 2-second frame hitch cannot blow it up. Non-finite input snaps to the target.
+        /// </summary>
+        public static void SpringStep(ref float value, ref float velocity, float target, float omega, float dt)
+        {
+            if (float.IsNaN(value) || float.IsInfinity(value) || float.IsNaN(velocity) || float.IsInfinity(velocity)) { value = target; velocity = 0f; return; }
+            float x0 = value - target;
+            float c = velocity + omega * x0;
+            float e = Mathf.Exp(-omega * dt);
+            value = target + (x0 + c * dt) * e;
+            velocity = (velocity - omega * c * dt) * e;
+            if (Mathf.Abs(value - target) < 0.0005f && Mathf.Abs(velocity) < 0.001f) { value = target; velocity = 0f; }
+        }
+
         public static void PlayClick(bool confirm = false, Vector3? at = null)
         {
             if (_uiAudio == null)
@@ -136,6 +151,10 @@ namespace Cursivis.Spatial.UI
         public ButtonStyle Style;
         public bool Selected;
         public bool Interactable = true;
+        /// <summary>Multiplied into the press/hover scale (used by layout animations such as the guided ring).</summary>
+        public float ExternalScale = 1f;
+        /// <summary>Hit target only: no visuals, no hover/press animation (events still fire).</summary>
+        public bool Invisible;
         public event Action Clicked;
         public event Action Pressed;
         public event Action Released;
@@ -187,7 +206,7 @@ namespace Cursivis.Spatial.UI
 
         public void Refresh()
         {
-            if (Background == null) return;
+            if (Background == null || Invisible) return;
             var p = CursivisTheme.P;
             Color a, bcol, border, text;
             switch (Style)
@@ -220,17 +239,64 @@ namespace Cursivis.Spatial.UI
             {
                 a.a *= 0.42f; bcol.a *= 0.42f; border.a *= 0.42f; text.a *= 0.42f;
             }
-            Background.Set(a, bcol, border, Background.Radius, _hover ? 1.6f : 1.2f);
-            if (Label != null) Label.color = text;
-            if (Glyph != null) Glyph.color = Style == ButtonStyle.Talk ? CursivisTheme.BrandCyan : text;
+            _tA = a; _tB = bcol; _tBorder = border; _tText = text;
+            _tGlyph = Style == ButtonStyle.Talk ? (Interactable ? CursivisTheme.BrandCyan : CursivisTheme.WithAlpha(CursivisTheme.BrandCyan, 0.42f)) : text;
+            _tBorderW = _hover || _down ? 1.8f : 1.2f;
+            if (!_colorsInit || CursivisTheme.IsTransitioning)
+            {
+                // first paint and theme cross-fades apply directly (the fade already interpolates)
+                _colorsInit = true;
+                _cA = _tA; _cB = _tB; _cBorder = _tBorder; _cText = _tText; _cGlyph = _tGlyph; _cBorderW = _tBorderW;
+                ApplyColors();
+                _colorAnim = false;
+            }
+            else _colorAnim = true;
+        }
+
+        // Animated visual state (hover/press/selection ease over ~90 ms instead of snapping).
+        Color _cA, _cB, _cBorder, _cText, _cGlyph, _tA, _tB, _tBorder, _tText, _tGlyph;
+        float _cBorderW = 1.2f, _tBorderW = 1.2f, _pressVel, _flash;
+        bool _colorsInit, _colorAnim;
+
+        void ApplyColors()
+        {
+            var border = _flash > 0.001f ? Color.Lerp(_cBorder, Color.white, _flash * 0.6f) : _cBorder;
+            Background.Set(_cA, _cB, border, Background.Radius, _cBorderW + _flash * 1.2f);
+            if (Label != null) Label.color = _cText;
+            if (Glyph != null) Glyph.color = _cGlyph;
         }
 
         void Update()
         {
-            float target = _down ? 0.965f : (_hover ? 1.02f : 1f);
-            _pressScale = Mathf.Lerp(_pressScale, target, 1f - Mathf.Exp(-Time.deltaTime * 22f));
-            transform.localScale = Vector3.one * _pressScale;
+            if (Invisible) return;
+            float dt = Mathf.Min(Time.unscaledDeltaTime, 0.1f);
+            // Critically damped spring for the press/hover scale, integrated with the exact closed-form step so it is
+            // stable at any frame rate (explicit Euler with omega*dt > 2 diverged to NaN at simulator frame rates).
+            float target = _down ? 0.955f : (_hover ? 1.03f : 1f);
+            UiKit.SpringStep(ref _pressScale, ref _pressVel, target, 26f, dt);
+            float sc = _pressScale * ExternalScale;
+            if (float.IsNaN(sc) || float.IsInfinity(sc)) sc = 1f;
+            transform.localScale = new Vector3(sc, sc, 1f);
+
+            if (_flash > 0f) { _flash = Mathf.Max(0f, _flash - dt / 0.28f); _colorAnim = true; }
+            if (!_colorAnim) return;
+            float k = 1f - Mathf.Exp(-dt * 24f);
+            _cA = Color.Lerp(_cA, _tA, k); _cB = Color.Lerp(_cB, _tB, k);
+            _cBorder = Color.Lerp(_cBorder, _tBorder, k); _cText = Color.Lerp(_cText, _tText, k);
+            _cGlyph = Color.Lerp(_cGlyph, _tGlyph, k); _cBorderW = Mathf.Lerp(_cBorderW, _tBorderW, k);
+            ApplyColors();
+            if (_flash <= 0f && ColorClose(_cA, _tA) && ColorClose(_cBorder, _tBorder) && ColorClose(_cText, _tText) && Mathf.Abs(_cBorderW - _tBorderW) < 0.01f)
+            {
+                _cA = _tA; _cB = _tB; _cBorder = _tBorder; _cText = _tText; _cGlyph = _tGlyph; _cBorderW = _tBorderW;
+                ApplyColors();
+                _colorAnim = false;
+            }
         }
+
+        static bool ColorClose(Color a, Color b) => Mathf.Abs(a.r - b.r) + Mathf.Abs(a.g - b.g) + Mathf.Abs(a.b - b.b) + Mathf.Abs(a.a - b.a) < 0.004f;
+
+        /// <summary>Brief bright border flash used to confirm a selection.</summary>
+        public void Flash() { _flash = 1f; _colorAnim = true; }
 
         public void OnPointerEnter(PointerEventData e) { _hover = true; Refresh(); }
         public void OnPointerExit(PointerEventData e) { _hover = false; if (_down) { _down = false; Released?.Invoke(); } Refresh(); }
@@ -257,6 +323,9 @@ namespace Cursivis.Spatial.UI
             if (!Interactable) return;
             if (Time.unscaledTime - _lastClick < 0.25f) return; // debounce double events
             _lastClick = Time.unscaledTime;
+            Flash();
+            _pressVel += 1.2f; // little rebound "pop" on release
+            if (Debug.isDebugBuild) Debug.Log($"[CursivisUI] click {name} (pointer {e.pointerId}, {e.pointerCurrentRaycast.module?.GetType().Name})");
             Clicked?.Invoke();
         }
 
@@ -264,6 +333,8 @@ namespace Cursivis.Spatial.UI
         public void InvokeClick()
         {
             if (!Interactable) return;
+            Flash();
+            _pressVel += 1.2f;
             Clicked?.Invoke();
         }
     }
@@ -324,13 +395,20 @@ namespace Cursivis.Spatial.UI
         void Update()
         {
             if (_t >= 1f) return;
-            _t = Mathf.Min(1f, _t + Time.deltaTime / Mathf.Max(0.01f, _dur));
+            _t = Mathf.Min(1f, _t + Mathf.Min(Time.unscaledDeltaTime, 0.1f) / Mathf.Max(0.01f, _dur));
             bool opening = _toA > _fromA;
             float e = opening ? Ease.OutCubic(_t) : Ease.InCubic(_t);
             _group.alpha = Mathf.Lerp(_fromA, _toA, e);
-            if (_content != null) _content.anchoredPosition = _restPos + new Vector2(0, Mathf.Lerp(_fromY, _toY, e));
+            if (_content != null)
+            {
+                _content.anchoredPosition = _restPos + new Vector2(0, Mathf.Lerp(_fromY, _toY, e));
+                // opening: grow 0.965 -> 1 with a soft overshoot; closing: shrink slightly while fading
+                float s = opening ? Mathf.LerpUnclamped(0.965f, 1f, Ease.OutBack(_t)) : Mathf.Lerp(1f, 0.975f, e);
+                _content.localScale = new Vector3(s, s, 1f);
+            }
             if (_t >= 1f)
             {
+                if (_content != null) _content.localScale = Vector3.one;
                 var d = _done;
                 _done = null;
                 d?.Invoke();

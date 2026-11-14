@@ -36,6 +36,9 @@ namespace Cursivis.Spatial.UI
         float _revealTimer, _revealInterval = 0.016f;
         int _revealStep = 1;
         float _shineT;
+        int _wordmarkFrame;
+        float _revealDoneAt = -1f;
+        readonly List<CanvasGroup> _followGroups = new List<CanvasGroup>();
         bool _speaking;
 
         public void Build()
@@ -118,6 +121,7 @@ namespace Cursivis.Spatial.UI
                 int idx = i;
                 chip.Clicked += () => { var t = chip.Tag as string; if (!string.IsNullOrEmpty(t)) FollowUpClicked?.Invoke(t); };
                 _followChips.Add(chip);
+                _followGroups.Add(UiKit.Group(chip.gameObject));
             }
             Scroll = _body.gameObject.AddComponent<ScrollRect>();
             Scroll.viewport = viewport;
@@ -211,7 +215,8 @@ namespace Cursivis.Spatial.UI
             _evidenceChip.Set(p.ChipA, p.ChipB, p.ChipBorder, 14f, 1f);
             _evidenceText.color = p.TextMuted;
             ThemeButton.SetGlyph(p.IsDark ? Icons.LightMode : Icons.DarkMode);
-            if (IsShowingResult && _lastMarkdown != null) _text.text = MarkdownTmp.Convert(_lastMarkdown, StyleFor(p));
+            // Re-layout rich text only once the theme cross-fade has settled (inline tag colors are palette-specific).
+            if (IsShowingResult && _lastMarkdown != null && !CursivisTheme.IsTransitioning) _text.text = MarkdownTmp.Convert(_lastMarkdown, StyleFor(p));
             if (IsShowingResult) SetChips(_lastUncertainty, _lastNote, _lastEvidence);
         }
 
@@ -280,6 +285,7 @@ namespace Cursivis.Spatial.UI
             _text.ForceMeshUpdate();
             _totalWords = Mathf.Max(1, _text.textInfo.wordCount);
             _revealWords = 0;
+            _revealDoneAt = -1f;
             _text.maxVisibleWords = 0;
             // original reveal cadence: 1-4 words per step every 12-20 ms depending on length
             _revealStep = _totalWords > 320 ? 4 : _totalWords > 200 ? 3 : _totalWords > 110 ? 2 : 1;
@@ -374,14 +380,24 @@ namespace Cursivis.Spatial.UI
                     _revealWords = Mathf.Min(_totalWords, _revealWords + _revealStep);
                 }
                 _text.maxVisibleWords = _revealWords >= _totalWords ? 99999 : _revealWords;
+                if (_revealWords >= _totalWords) _revealDoneAt = Time.unscaledTime;
+            }
+            // follow-up chips slide in one by one after the answer has finished revealing
+            for (int i = 0; i < _followGroups.Count; i++)
+            {
+                float ft = _revealDoneAt < 0f ? 0f : Mathf.Clamp01((Time.unscaledTime - _revealDoneAt - i * 0.07f) / 0.25f);
+                _followGroups[i].alpha = Ease.OutCubic(ft);
+                _followChips[i].ExternalScale = Mathf.LerpUnclamped(0.85f, 1f, Ease.OutBack(ft));
             }
             if (_skeleton.gameObject.activeSelf)
             {
-                float t = Time.time * 1.6f;
+                // shimmer: a soft highlight sweeps down the placeholder lines (truthful "working" feedback)
+                float sweep = (Time.unscaledTime % 1.6f) / 1.6f * (_skeletonBars.Count + 2) - 1f;
                 var p = CursivisTheme.P;
                 for (int i = 0; i < _skeletonBars.Count; i++)
                 {
-                    float a = 0.05f + 0.05f * (0.5f + 0.5f * Mathf.Sin(t - i * 0.55f));
+                    float w = Mathf.Clamp01(1f - Mathf.Abs(i - sweep) / 1.3f);
+                    float a = 0.05f + 0.10f * w * w;
                     _skeletonBars[i].Set(CursivisTheme.WithAlpha(p.TextMain, a + 0.03f), CursivisTheme.WithAlpha(p.TextMain, a), Color.clear, 6f, 0f);
                 }
             }
@@ -409,7 +425,7 @@ namespace Cursivis.Spatial.UI
             var p = CursivisTheme.P;
             float period = p.IsDark ? 2.65f : 3.35f;
             _shineT = (Time.time % period) / period;
-            _wordmark.ForceMeshUpdate();
+            if (++_wordmarkFrame % 45 == 1 || _wordmark.textInfo.characterCount == 0) _wordmark.ForceMeshUpdate();
             var info = _wordmark.textInfo;
             if (info.characterCount == 0) return;
             float minX = float.MaxValue, maxX = float.MinValue;

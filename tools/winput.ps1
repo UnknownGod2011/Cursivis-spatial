@@ -16,6 +16,7 @@ param(
   [string]$Down = "",
   [string]$Up = "",
   [switch]$Info,
+  [switch]$Maximize,
   [string]$ScreenClick = ""
 )
 Add-Type -AssemblyName System.Windows.Forms
@@ -29,6 +30,7 @@ public static class CursivisInput {
   [DllImport("user32.dll")] public static extern bool ClientToScreen(IntPtr h, ref System.Drawing.Point p);
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
+  [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
   [DllImport("user32.dll")] public static extern void mouse_event(uint f, int dx, int dy, uint d, UIntPtr e);
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
@@ -41,8 +43,9 @@ if ($ScreenPts.Count -ge 2) { [CursivisInput]::SetProcessDPIAware() | Out-Null; 
 $p = Get-Process -Name $Process -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowHandle -ne 0 } | Select-Object -First 1
 if (-not $p) { throw "No window for $Process" }
 $h = $p.MainWindowHandle
-[CursivisInput]::ShowWindow($h, 9) | Out-Null
+[CursivisInput]::ShowWindow($h, $(if ([CursivisInput]::IsIconic($h)) { 9 } else { 5 })) | Out-Null
 [CursivisInput]::SetForegroundWindow($h) | Out-Null
+if ($Maximize) { [CursivisInput]::ShowWindow($h, 3) | Out-Null; Start-Sleep -Milliseconds 400 }
 Start-Sleep -Milliseconds 150
 $r = New-Object CursivisInput+RECT
 [CursivisInput]::GetWindowRect($h, [ref]$r) | Out-Null
@@ -76,6 +79,6 @@ if ($DragPts.Count -ge 4) {
   Write-Output "dragged $($DragPts -join ',')"
 }
 if ($Keys) { [System.Windows.Forms.SendKeys]::SendWait($Keys); Write-Output "sent keys $Keys" }
-$VK = @{ "SPACE"=0x20; "SHIFT"=0x10; "CTRL"=0x11; "ALT"=0x12; "W"=0x57; "A"=0x41; "S"=0x53; "D"=0x44; "Q"=0x51; "E"=0x45; "F"=0x46; "R"=0x52; "T"=0x54; "G"=0x47; "H"=0x48; "UP"=0x26; "DOWN"=0x28; "LEFT"=0x25; "RIGHT"=0x27; "1"=0x31; "2"=0x32; "3"=0x33; "4"=0x34; "5"=0x35 }
+$VK = @{ "SPACE"=0x20; "SHIFT"=0x10; "CTRL"=0x11; "ALT"=0x12; "W"=0x57; "A"=0x41; "S"=0x53; "D"=0x44; "Q"=0x51; "E"=0x45; "F"=0x46; "R"=0x52; "T"=0x54; "G"=0x47; "H"=0x48; "UP"=0x26; "DOWN"=0x28; "LEFT"=0x25; "RIGHT"=0x27; "1"=0x31; "2"=0x32; "3"=0x33; "4"=0x34; "5"=0x35; "KP1"=0x61; "KP2"=0x62; "KP3"=0x63; "KP4"=0x64; "B"=0x42; "N"=0x4E; "M"=0x4D; "I"=0x49; "U"=0x55; "Y"=0x59; "J"=0x4A; "LBRACKET"=0xDB; "RBRACKET"=0xDD }
 if ($Down) { foreach ($k in $Down.Split(",")) { [CursivisInput]::keybd_event([byte]$VK[$k], 0, 0, [UIntPtr]::Zero) }; Write-Output "down $Down" }
 if ($Up) { foreach ($k in $Up.Split(",")) { [CursivisInput]::keybd_event([byte]$VK[$k], 0, 2, [UIntPtr]::Zero) }; Write-Output "up $Up" }
