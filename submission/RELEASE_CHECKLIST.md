@@ -19,7 +19,7 @@ Steps marked **(you)** need your accounts and cannot be automated from this repo
 
 ## 3. Upload the APK (you, about 5 minutes)
 The release APK is `builds/android/CursivisSpatial.apk` (also attached to the GitHub release). It is signed with the
-release keystore described in section 6, package `com.cursivis.spatial`, version 1.0.0 (code 1).
+release keystore described in section 8, package `com.cursivis.spatial`, version 1.0.1 (code 2).
 
 ```powershell
 # Meta's upload tool (Windows): https://developers.meta.com/horizon/resources/publish-reference-platform-command-line-utility/
@@ -29,7 +29,7 @@ ovr-platform-util.exe upload-quest-build --app-id <APP_ID> --app-secret <APP_SEC
 - `--age-group` is required for new apps. `TEENS_AND_ADULTS` matches the app (no mature content, safety-filtered AI);
   choose `ADULTS_ONLY` if you prefer the conservative option.
 - If the upload says the version code already exists, rebuild with a higher code:
-  `powershell -File tools/build-apk.ps1 -VersionCode 2`.
+  `powershell -File tools/build-apk.ps1 -VersionCode 3`.
 
 ## 4. Invite URL (you)
 1. [ ] Release channel **Competition** → **Users** → turn on **Grant access to users by URL**.
@@ -39,7 +39,7 @@ ovr-platform-util.exe upload-quest-build --app-id <APP_ID> --app-secret <APP_SEC
        10-minute device check in `docs/TEST_PLAN.md` §4. Everything on device is still UNVERIFIED.
 
 ## 5. Video (you)
-1. [ ] Use `submission/media/cursivis-spatial-demo.mp4` (simulator footage, labelled on screen) or re-record with
+1. [ ] Use `submission/media/cursivis-spatial-demo.mp4` (1:59, simulator footage, labelled on screen; also on GitHub release v1.0.1) or re-record with
        `docs/DEMO_SCRIPT.md`. It must be **under 3:00**.
 2. [ ] Upload to YouTube (or Vimeo) as **Public**. Title suggestion: "Cursivis Spatial: hands-first AI for Meta Quest
        (Meta XR Simulator footage)". Put "Recorded in Meta XR Simulator; no headset was available" in the description.

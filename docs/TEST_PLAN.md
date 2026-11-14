@@ -84,9 +84,27 @@ Record results here with the date and headset model.
 
 | Check | Result |
 |---|---|
-| Build | PENDING |
-| Signing | release keystore (outside the repo) |
-| Manifest | PENDING |
+| Build | **PASS**: `tools/build-apk.ps1 -VersionCode 2` → `builds/android/CursivisSpatial.apk`, 70.4 MB, 2026-11-14 18:46 |
+| Package | `com.cursivis.spatial`, versionName 1.0.1, versionCode 2, minSdk 32, targetSdk 34, arm64-v8a |
+| Signing | **PASS**: `apksigner verify`: CN=Cursivis Spatial (release keystore outside the repo) |
+| Manifest | **PASS** (`aapt`): HEADSET_CAMERA, RECORD_AUDIO, INTERNET, HAND_TRACKING, USE_SCENE; `com.oculus.supportedDevices=quest3\|quest3s`; VR launcher category; hand tracking frequency HIGH; no `android.permission.CAMERA` |
+| OpenXR validation | **PASS**: 0 errors after automatic fixes (Meta Quest Support feature, not the deprecated Oculus Quest one) |
+| Install / launch on a headset | UNVERIFIED (device) |
+
+## 7. Demo recording run (2026-11-14 18:33, release simulator build)
+
+`tools/demo-run.ps1` (scenarios `code,notice,label,snip,research`, pace 1.5): **26/26 steps PASS** with live AI.
+A simulated-hand pinch (point-and-click) selected the code card before the autopilot started.
+
+| Scenario | Live AI result (from the run log) |
+|---|---|
+| code | Suggestions: Explain Code · Find Bugs · Optimize Code · Document Code. Find Bugs: "Off-by-one error: the loop condition `i <= reviews.length` ..." |
+| notice (Spanish) | Suggestions start with Translate Notice. Translation: "Next Tuesday, December 3rd, the water supply will be cut off between 9:00 and 14:00 ..." |
+| label (energy drink) | Suggestions: Check Allergens · List Ingredients · Explain Additives · Health Warnings. "Is this vegan?": "Not vegan: contains E120 (carmine), a red food colouring derived from insects, and vitamin D3, which is frequently sourced from lanolin". Follow-up: "80 mg of caffeine in one 250 ml can ... official guidance ... 400 mg" |
+| snip (room camera) | "a window with dark curtains next to a floor lamp with a wooden tripod base" |
+| research | Key Findings result; theme cross-fade to light |
+
+Latency in this run: suggestions 1.9-7.1 s, actions and Talk 1.6-4.0 s (first request after launch was the slowest).
 
 ## 6. Performance measurements (measured only)
 

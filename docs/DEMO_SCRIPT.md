@@ -1,55 +1,55 @@
 # Demo video script (under 3 minutes)
 
-Rules that shape this script (see `docs/RESEARCH.md` §7):
-- Under 3:00, public on YouTube or Vimeo, English.
-- "Make your hands-first design clear in the first 30 seconds."
-- Show real footage that honestly represents the app. Simulator footage is allowed, so every simulator shot carries the
-  on-screen label **"Meta XR Simulator footage · live AI responses"**.
-- No identifiable people and no brand logos in frame (the simulator living room and the workspace documents have none).
+Final video: `submission/media/cursivis-spatial-demo.mp4`, **1:59**, 1920×1080, silent, every frame labelled
+"Meta XR Simulator footage (Quest 3 profile) · Real app build, live AI responses". Also attached to GitHub release v1.0.1.
 
-Target length 2:45. Times are approximate.
+Rules that shape it (see `docs/RESEARCH.md` §7): under 3:00, public on YouTube or Vimeo, English, hands-first visible in
+the first 30 seconds, honest footage, no identifiable people, no brand logos (the energy drink label is original
+artwork without a brand).
 
-| Time | Shot | What happens on screen | Caption |
+## The cut (from `submission/media/demo-segments.tsv`)
+
+| Video time | Raw time | Shows | Caption |
 |---|---|---|---|
-| 0:00-0:08 | Room view, orb idle at lower right, workspace documents in front | Title fades in | **Cursivis Spatial**. Selection is Context. Gesture is Intent. Cursivis is Action. |
-| 0:08-0:30 | Simulated right hand ray on the research abstract | Pinch: the paragraph highlights and the chip "Whole paragraph selected · Ask Cursivis" pops up. Pinch Ask Cursivis: the orb glides beside the paragraph and four chips fly out of it while they shimmer, then fill with "Key Findings", "Simplify Text", "Explain Terms", "Research Questions"; the Talk chip glows | Hands only: pinch to select, pinch to ask. Four AI actions + Talk. |
-| 0:30-0:50 | Same | Pinch Key Findings: the card slides in with a loading shimmer, then the answer reveals word by word with headings and bullets | One pinch to act. About 2 s with the free-tier Gemini backend. |
-| 0:50-1:05 | Card | Pinch Read aloud: the orb switches to speaking and the answer plays from the orb's position | Read aloud from the orb. |
-| 1:05-1:20 | Card | Follow-up: "Explain the main finding like I'm 12" → new answer in the same card | Follow-ups remember the conversation. |
-| 1:20-1:45 | Photo document | Pinch the photo → suggestions ("Describe Photo", "Write Caption", ...) → Write Caption → Redo gives a different caption | Works on images too. |
-| 1:45-2:20 | Room | Tap Snip: the camera frame overlay appears. Pinch-drag a box around the curtains and lamp. The crop freezes as a preview, suggestions arrive ("Describe Scene", ...), then Talk: "What is this? Describe what you can see." | Snip the real world through the Passthrough Camera API. |
-| 2:20-2:35 | Orb | With nothing selected, "What can you do?" → general answer; theme cross-fades from dark to light and back | General conversation and theme. |
-| 2:35-2:50 | End card over the room | Text only | Quest 3/3S · Unity 6 + Meta XR SDK 209 (ISDK hands, MRUK Passthrough Camera API) · Gemini via a keyless-client backend · github.com/UnknownGod2011/Cursivis-spatial |
+| 0:00-0:03 | title card | Name and tagline | Cursivis Spatial. Selection is Context. Gesture is Intent. Cursivis is Action. |
+| 0:03-0:11 | 29.0-36.5 s | Simulated right hand points at the code card and pinches; the card is selected, Ask Cursivis chip appears | Pinch to select |
+| 0:11-0:19 | 50.5-58.3 s | Ask Cursivis: orb moves next to the code, "Understanding…" (about 7 s of real latency, kept) | Ask Cursivis |
+| 0:19-0:21 | hold at 58.3 s | Four chips + Talk (frame held 2.5 s, captioned as held) | Four actions + Talk |
+| 0:21-0:32 | 58.3-69.5 s | Find Bugs → off-by-one error in the loop | Find Bugs |
+| 0:32-0:38 | 71.3-77.0 s | Spanish building notice selected → Translate Notice first | A notice in Spanish |
+| 0:38-0:50 | 77.0-89.0 s | Translation (water cut on Tuesday 3 December, 9:00-14:00), scroll | Translate Notice |
+| 0:50-0:58 | 90.5-98.0 s | Back of an energy drink can, region over the ingredients → Check Allergens, List Ingredients, Explain Additives, Health Warnings | Energy drink label |
+| 0:58-1:08 | 98.0-108.0 s | Talk "Is this vegan?" → "Not vegan: contains E120 (carmine) … vitamin D3 often from lanolin" | Talk: "Is this vegan?" |
+| 1:08-1:26 | 108.0-126.0 s | Read aloud (orb speaking), follow-up "How much caffeine is in one can?" → 80 mg per can, ~400 mg/day guidance | Read aloud + follow-up |
+| 1:26-1:38 | 127.7-139.5 s | Room Snip through the Passthrough Camera API → "a window with dark curtains next to a floor lamp" | Snip the room |
+| 1:38-1:52 | 140.2-155.0 s | Research abstract → Key Findings, cross-fade to the light theme | Key Findings + theme |
+| 1:52-1:59 | end card | Tech line, repo, honesty note | |
 
-## How the footage was recorded (simulator)
+Cuts only remove idle time (before the first action and between scenarios). Waits between an action and its AI
+answer are kept.
 
-The repository's tools reproduce the recording on a Windows PC without a headset:
+## What is genuine and what is scripted (also stated in the video and its description)
+- **Genuine:** the app build, every AI answer (live Gemini through the production backend), the passthrough camera
+  frames of the simulator room, the UI, animations and latency.
+- **Simulated hand:** the first selection is a real hand-ray pinch in the simulator (point-and-click mode).
+- **Scripted:** later steps are triggered by the built-in test autopilot (`--cursivis-autopilot`), which calls the same
+  functions as the buttons; questions are typed by it because the simulator has no microphone. The room snip's drag
+  is simulated on the snip surface.
+- **Not captured:** audio (the read-aloud is visible as the orb's speaking state only).
 
-1. Build the simulator player (Development build so the test autopilot is available):
-   ```powershell
-   $env:CURSIVIS_BACKEND_URL = "https://cursivis-spatial.vercel.app"; $env:CURSIVIS_DEVELOPMENT = "1"
-   powershell -File tools/unity-batch.ps1 -Method Cursivis.Spatial.EditorTools.CursivisBuild.BuildWindows -Target StandaloneWindows64 -Name build-win
-   ```
-2. Start the app in the simulator, choose the **Living Room** environment, switch the inputs to hands:
-   ```powershell
-   powershell -File tools/run-sim.ps1 -LogName demo -Autopilot all -PlayerArgs "--cursivis-autopilot-delay=60,--cursivis-autopilot-pace=1.8"
-   metavr xrsim input source --hand right --source hand
-   ```
-3. Record the simulator viewport with ffmpeg (the simulator build has no native MP4 recorder):
-   `powershell -File tools/record-sim.ps1 -Out test-results/local/video/demo-raw.mp4 -Seconds 200`
-4. Add the captions and the simulator label: `powershell -File tools/label-video.ps1`.
+## How to reproduce it
+```powershell
+# 1. Release simulator build (about 2 minutes)
+$env:CURSIVIS_BACKEND_URL = "https://cursivis-spatial.vercel.app"
+powershell -File tools/unity-batch.ps1 -Method Cursivis.Spatial.EditorTools.CursivisBuild.BuildWindows -Target StandaloneWindows64 -Name build-win
+# 2. Record: starts the simulator and the app, pins the window on top, records with ffmpeg, pinches the code card,
+#    then lets the paced autopilot run code, notice, label, snip and research (keep the PC idle for ~5 minutes)
+powershell -File tools/demo-run.ps1
+# 3. Cut and caption: read the event times from the log (the autopilot prints at=HH:mm:ss.fff for every step),
+#    edit submission/media/demo-segments.tsv, then
+powershell -File tools/label-video.ps1 -Raw test-results/local/video/demo-final.mkv -Segments submission/media/demo-segments.tsv
+```
 
-What is genuine and what is scripted, as stated in the video description:
-- **Genuine:** every AI response (live Gemini through the production backend), the Passthrough Camera API frames
-  (simulated camera of the synthetic room), the UI, animations and timings.
-- **Simulated hands:** the hand pinches shown on the workspace come from the simulator's hand input (pinch key, ray
-  aimed by turning the simulated head).
-- **Scripted:** some later steps are triggered by the built-in test autopilot (`--cursivis-autopilot`) that calls the
-  same app methods as the buttons, because aiming a simulated hand at every chip is slow. Those segments are captioned
-  "steps triggered by the test autopilot".
-
-## If you can borrow a Quest 3/3S
-
-Record the same shot list on the device with the headset's own recorder (Quest menu → Camera → Record video). Real
-hands and the real room make the strongest video. Then replace the simulator label with nothing; do not reuse the
-simulator footage for device claims.
+## With a Quest 3/3S
+Use the same order with real hands, a real printed page and a real (unbranded) package; record with the headset's
+own recorder. See `submission/DEMO_SCRIPT.md`, section B.

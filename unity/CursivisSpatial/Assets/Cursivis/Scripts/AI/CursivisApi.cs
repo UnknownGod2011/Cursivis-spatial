@@ -172,13 +172,15 @@ namespace Cursivis.Spatial
         public async Task<bool> HealthAsync(CancellationToken ct)
         {
             if (!_config.IsBackendConfigured) return false;
-            using (var req = UnityWebRequest.Get(_config.backendUrl + "/v1/health"))
+            // Reachability check. From the desktop player in the simulator, GET /v1/health timed out ("0 bytes received")
+            // on almost every call while the POST endpoints answered in 2-3 s, so the check uses the same POST path as
+            // real requests and treats any HTTP response from the backend as "reachable".
+            using (var req = BuildRequest("/v1/health", new JObject(), 12))
             {
-                req.timeout = 8;
                 try
                 {
                     await SendAsync(req, ct);
-                    return req.result == UnityWebRequest.Result.Success;
+                    return req.responseCode > 0;
                 }
                 catch (OperationCanceledException) { throw; }
                 catch { return false; }
@@ -205,15 +207,19 @@ namespace Cursivis.Spatial
         async Task<T> PostJsonAsync<T>(string path, JObject body, int timeoutSec, CancellationToken ct)
         {
             // One automatic retry for transient network failures (not for HTTP errors from the backend).
+            // The first attempt has a short timeout: from the desktop player we saw requests stall on a dead pooled
+            // connection ("timed out ... with 0 bytes received") while a fresh request answered in 2-3 s. A stall then
+            // costs ~9 s instead of the full timeout. The retry gets the full timeout (backend caches make it cheap).
+            const int FirstAttemptTimeoutSec = 9;
             for (int attempt = 0; ; attempt++)
             {
-                using (var req = BuildRequest(path, body, timeoutSec))
+                using (var req = BuildRequest(path, body, attempt == 0 ? Math.Min(timeoutSec, FirstAttemptTimeoutSec) : timeoutSec))
                 {
                     await SendAsync(req, ct);
                     bool network = req.result == UnityWebRequest.Result.ConnectionError;
                     if (network && attempt == 0)
                     {
-                        await Task.Delay(600, ct);
+                        await Task.Delay(300, ct);
                         continue;
                     }
                     ThrowIfFailed(req);

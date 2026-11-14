@@ -55,6 +55,9 @@ namespace Cursivis.Spatial.App
                 Debug.Log($"[CursivisAuto] begin {s} at={DateTime.Now:HH:mm:ss.fff}");
                 switch (s)
                 {
+                    case "notice": yield return Notice(); break;
+                    case "label": yield return Label(); break;
+                    case "research": yield return Research(); break;
                     case "code": yield return Code(); break;
                     case "workspace": yield return Workspace(); break;
                     case "photo": yield return Photo(); break;
@@ -126,6 +129,55 @@ namespace Cursivis.Spatial.App
             UI.CursivisTheme.Toggle();
             yield return Pause(2f);
             UI.CursivisTheme.Toggle();
+        }
+
+        // Demo scenarios (docs/DEMO_SCRIPT.md). Each one keeps a selection the user already made by hand.
+        IEnumerator Notice()
+        {
+            const string sc = "notice";
+            if (_app.Selection == null || _app.Selection.Title != "Aviso a los vecinos") _app.AutomationSelectWorkspaceText(1);
+            yield return TriggerAndSuggest(sc);
+            yield return Pause(1.5f);
+            yield return RunSuggestion(sc, 0, "translat");
+            yield return Pause(4f);
+            _app.Card.ScrollBy(0.5f);
+            yield return Pause(2.5f);
+        }
+
+        IEnumerator Label()
+        {
+            const string sc = "label";
+            // pinch-drag region over the ingredients, allergy and caffeine text (left half of the can label)
+            _app.AutomationSelectPhoto(new Rect(0.03f, 0.13f, 0.48f, 0.80f));
+            yield return TriggerAndSuggest(sc);
+            yield return Pause(2.5f);
+            var before = _app.LastResult;
+            _ = _app.AutomationTalkTyped("Is this vegan?", true);
+            yield return WaitFor(sc, "is_it_vegan", () => State(FlowState.ResultVisible) && _app.LastResult != null && _app.LastResult != before, 60f, ResultSummary);
+            yield return Pause(4f);
+            _app.AutomationReadAloud();
+            yield return WaitFor(sc, "read_aloud_audio_playing", () => _app.IsAudioPlaying, 25f);
+            yield return Pause(4f);
+            _app.AutomationReadAloud(); // stop
+            yield return WaitFor(sc, "read_aloud_stopped", () => !_app.IsSpeaking, 3f);
+            before = _app.LastResult;
+            _ = _app.AutomationTalkTyped("How much caffeine is in one can, and how many cans a day are safe for an adult?", true);
+            yield return WaitFor(sc, "caffeine_follow_up", () => State(FlowState.ResultVisible) && _app.LastResult != before, 60f, ResultSummary);
+            yield return Pause(5f);
+        }
+
+        IEnumerator Research()
+        {
+            const string sc = "research";
+            _app.AutomationSelectWorkspaceText(0);
+            yield return TriggerAndSuggest(sc);
+            yield return Pause(1.5f);
+            yield return RunSuggestion(sc, 0, "key");
+            yield return Pause(3f);
+            UI.CursivisTheme.Toggle(); // light theme
+            yield return Pause(3f);
+            UI.CursivisTheme.Toggle(); // back to dark
+            yield return Pause(1.5f);
         }
 
         IEnumerator Code()

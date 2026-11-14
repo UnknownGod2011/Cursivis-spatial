@@ -54,10 +54,10 @@ namespace Cursivis.Spatial.App
         public void Build(IList<Canvas> canvases)
         {
             Canvases.AddRange(canvases);
-            Photo = Resources.Load<Texture2D>("Workspace/photo-footbridge");
+            Photo = Resources.Load<Texture2D>("Workspace/energy-drink-back");
             BuildTextPanel(canvases[0], "Research abstract", "research_paper", Icons.Book, Research, false);
             BuildTextPanel(canvases[1], "Aviso a los vecinos", "notice", Icons.Translate, Spanish, false);
-            BuildImagePanel(canvases[2], "Photo \u00B7 coastal footbridge", Photo);
+            BuildImagePanel(canvases[2], "Product \u00B7 energy drink, back of can", Photo, "Back of an energy drink can (ingredients and nutrition label)", "product_label");
             BuildTextPanel(canvases[3], "reviews.js", "code", Icons.Code, Code, true);
             CursivisTheme.Changed += ApplyTheme;
             ApplyTheme();
@@ -104,7 +104,7 @@ namespace Cursivis.Spatial.App
             _theme.Add(() => text.color = CursivisTheme.P.TextMain);
         }
 
-        void BuildImagePanel(Canvas c, string title, Texture2D tex)
+        void BuildImagePanel(Canvas c, string title, Texture2D tex, string description, string docType)
         {
             Shell(c, title, "pinch, or drag a region", Icons.Image, out var body);
             var frame = UiKit.Rect(body, "Frame", Vector2.zero);
@@ -119,7 +119,8 @@ namespace Cursivis.Spatial.App
             img.anchorMin = img.anchorMax = new Vector2(0.5f, 0.5f);
             img.sizeDelta = size;
             var item = img.gameObject.AddComponent<WorkspaceImage>();
-            item.Init(raw, "Photo: coastal footbridge (public domain, BLM Oregon & Washington)");
+            item.Init(raw, description);
+            item.DocType = docType;
             item.Selected += (w, uv, corners) => ImageSelected?.Invoke(w, uv, corners);
             Images.Add(item);
         }

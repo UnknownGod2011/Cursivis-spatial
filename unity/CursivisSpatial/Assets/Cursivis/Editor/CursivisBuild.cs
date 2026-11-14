@@ -55,6 +55,7 @@ namespace Cursivis.Spatial.EditorTools
         {
             var version = Environment.GetEnvironmentVariable("CURSIVIS_VERSION_CODE");
             if (int.TryParse(version, out var code)) PlayerSettings.Android.bundleVersionCode = code;
+            PlayerSettings.bundleVersion = CursivisVersion.Version; // versionName follows the runtime version constant
             EditorUserBuildSettings.androidBuildSubtarget = MobileTextureSubtarget.ASTC;
             EditorUserBuildSettings.buildAppBundle = false;
             // Disk and build-time budget on the dev laptop: no symbols.zip, and IL2CPP generates size-optimized C++

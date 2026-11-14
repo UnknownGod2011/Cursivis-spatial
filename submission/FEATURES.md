@@ -9,13 +9,13 @@ Status legend:
 
 | Feature | What the user does | Sim | Device |
 |---|---|---|---|
-| Workspace selection | Pinch a document card to select the whole block, or pinch-drag across words to select a range; pinch the photo, or pinch-drag a region of it | Verified with a simulated hand pinch and by the test autopilot | UNVERIFIED |
+| Workspace selection | Pinch a document card to select the whole block, or pinch-drag across words to select a range; pinch the product image (back of an energy drink can), or pinch-drag a region of it. Workspace: research abstract, Spanish building notice, energy drink label, JavaScript file | Verified with a simulated hand pinch and by the test autopilot | UNVERIFIED |
 | Room Snip (Passthrough Camera API) | Tap **Snip**, then pinch-drag a box around anything in the room. Cursivis freezes that crop as the selection | Verified: MRUK `PassthroughCameraAccess` streamed 1280×960 frames from the simulator room; crop captured and sent | UNVERIFIED |
 | Selection chip | "Ask Cursivis" appears under the selection with a caption ("Whole paragraph selected", "12 words selected", "Photo region selected") and Clear / Retake | Verified | UNVERIFIED |
-| Four AI suggestions | One AI call reads the selection and returns exactly four short, specific actions (for example "Key Findings", "Explain Terms", "Describe Room", "Write Caption") | Verified; 2.1-4.6 s in the simulator runs | UNVERIFIED |
+| Four AI suggestions | One AI call reads the selection and returns exactly four short, specific actions (for example "Translate Notice", "Find Bugs", "Check Allergens", "Key Findings", "Describe Scene") | Verified; 1.9-7.1 s in the simulator runs | UNVERIFIED |
 | Talk (never AI-generated) | A fifth chip, always present. Hold to talk, or tap and speak and Cursivis stops when you pause | Typed Talk verified; microphone path UNVERIFIED (the simulator has no Android mic permission flow) | UNVERIFIED |
 | Result card | Title, formatted answer that reveals word by word, evidence and uncertainty notes, up to three follow-up chips, scroll | Verified | UNVERIFIED |
-| Follow-ups | Pinch a follow-up chip or Talk again; the conversation remembers the last 8 turns for that selection | Verified ("Explain the main finding like I'm 12") | UNVERIFIED |
+| Follow-ups | Pinch a follow-up chip or Talk again; the conversation remembers the last 8 turns for that selection | Verified ("Is this vegan?" then "How much caffeine is in one can?") | UNVERIFIED |
 | Regenerate, More options, Copy | Redo gives a different answer; More options reopens the four suggestions without a new AI call | Regenerate and More options verified | Copy UNVERIFIED |
 | Read aloud | Speaks the answer from the orb with Gemini TTS, in chunks so audio starts quickly | Verified; first audio in 3.2-4.4 s | UNVERIFIED |
 | General conversation | Pinch the orb with nothing selected and ask anything ("What can you do?") | Verified (typed) | UNVERIFIED |

@@ -479,14 +479,14 @@ namespace Cursivis.Spatial.App
             if (src == null) { Toast("This image can't be selected."); return; }
             var crop = WorkspaceCapture.CropTexture(src, uv);
             bool whole = uv.width > 0.98f && uv.height > 0.98f;
-            var sel = new CursivisSelection(SelectionKind.Image, SelectionSource.Workspace, null, crop.Jpeg, crop.Width, crop.Height, item.Title, "photo")
+            var sel = new CursivisSelection(SelectionKind.Image, SelectionSource.Workspace, null, crop.Jpeg, crop.Width, crop.Height, item.Title, string.IsNullOrEmpty(item.DocType) ? "photo" : item.DocType)
             {
                 WorldCorners = corners,
                 Preview = crop.Preview
             };
             SetSelection(sel);
             Flow.Go(FlowState.SelectionConfirmed, "workspace image");
-            ShowChip(sel, whole ? "Photo selected" : "Photo region selected", "Clear");
+            ShowChip(sel, whole ? "Image selected" : "Region selected", "Clear");
             CursivisMetrics.Since("select_down", "select_gesture_ms");
             CursivisMetrics.Count("select_image");
         }
@@ -1114,9 +1114,11 @@ namespace Cursivis.Spatial.App
         }
 
         bool _onlineKnown;
+        float _lastOkAt = -1000f; // realtimeSinceStartup of the last successful backend call
 
         void SetOnline(bool online)
         {
+            if (online) _lastOkAt = Time.realtimeSinceStartup;
             if (!_onlineKnown)
             {
                 // first result: no "Back online" toast at startup, only a warning if we start offline
@@ -1159,7 +1161,8 @@ namespace Cursivis.Spatial.App
                 failedRounds = ok ? 0 : failedRounds + 1;
                 // Idle-state check only: declare offline after two failed rounds (~30 s). Real requests report network
                 // errors immediately through SetOnline(false) in their own error handlers.
-                if (ok || failedRounds >= 2) SetOnline(ok);
+                // A failed health check never overrides a real request that succeeded in the last two minutes.
+                if (ok || (failedRounds >= 2 && Time.realtimeSinceStartup - _lastOkAt > 120f)) SetOnline(ok);
                 try { await Task.Delay(ok ? 60000 : 8000, ct); }
                 catch (OperationCanceledException) { return; }
             }

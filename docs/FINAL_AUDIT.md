@@ -9,12 +9,12 @@ tests. Device behaviour is marked UNVERIFIED.
 
 | Area | Status |
 |---|---|
-| Quest APK | Built and release-signed: `builds/android/CursivisSpatial.apk` (70 MB, `com.cursivis.spatial` 1.0.0 / code 1, arm64-v8a, Vulkan, OpenXR Meta Quest feature). Also attached to GitHub release v1.0.0. **Never installed on a headset.** |
+| Quest APK | Built and release-signed: `builds/android/CursivisSpatial.apk` (70.4 MB, `com.cursivis.spatial` 1.0.1 / code 2, arm64-v8a, Vulkan, OpenXR Meta Quest feature). Attached to GitHub release v1.0.1. **Never installed on a headset.** |
 | Manifest | Verified with `aapt`: HEADSET_CAMERA, RECORD_AUDIO, INTERNET, HAND_TRACKING, USE_SCENE; `com.oculus.supportedDevices=quest3\|quest3s`; VR launcher category; hand tracking frequency HIGH; `android.permission.CAMERA` not requested. Extra permissions merged by SDKs: MODIFY_AUDIO_SETTINGS, BLUETOOTH, USE_ANCHOR_API (harmless) |
 | Backend | Live at https://cursivis-spatial.vercel.app (Vercel Hobby, free). Unit 23/23, live 7/7, production smoke 4/4 (suggest 2.3 s, act 2.1 s, talk 1.8-2.9 s) |
-| Core loop in the simulator | 20/20 autopilot steps with real AI (auto4), repeated in the demo runs |
+| Core loop in the simulator | 20/20 (auto4) and 26/26 (final demo run) autopilot steps with live AI: code bug, Spanish notice translation, energy drink 'Is this vegan?' + caffeine follow-up, room snip, research findings |
 | Hands-only operation | Simulated-hand ray + pinch selects workspace documents (verified). Pinching the chips and buttons with the simulated hand could not be aimed reliably in the simulator (the hand ray starts at the hand, so it misses near panels the cursor points at); those steps were driven by the test autopilot through the same handlers. **Device check required** (see `docs/TEST_PLAN.md` §4) |
-| Submission materials | `submission/` complete; video `submission/media/cursivis-spatial-demo.mp4` (simulator footage, labelled) |
+| Submission materials | `submission/` complete; video `submission/media/cursivis-spatial-demo.mp4` (1:59, simulator footage, labelled) and 8 stills |
 | Human-only steps | Meta Dashboard app + "Competition" channel + invite URL, Devpost form, YouTube upload, Start membership (see `submission/RELEASE_CHECKLIST.md`) |
 
 Verdict: **ready to submit as a simulator-verified build, with an explicit device-verification gap.** The single most
@@ -40,6 +40,7 @@ valuable remaining action is a 10-minute run on any Quest 3/3S.
 | 5 | Red errors in the desktop window of development builds | Operator API layer enabled for Standalone (tool registration failed), depth manager enabled where depth is unsupported, Microsoft hand-interaction bindings rejected by the simulator | API layers and Microsoft hand interaction off for Standalone; depth enabled only when `EnvironmentDepthManager.IsSupported` | Release Windows build shows no console; Android settings unchanged |
 | 6 | "Offline" / "Back online" toasts on startup | First health check from the simulator player often times out (curl error 28 after 8 s) and every result toasted | No toast for the first result, a failed check is re-tried after 3 s, idle offline needs two failed rounds; real request failures still report immediately | Code review; simulator log |
 | 7 | Layout could drift away from the user | Head jumped in 1 m steps in one simulator run (cause unknown) | Head-relative layout follows the head when it moves more than 45 cm | auto4 `layout_follow` counter |
+| 9 | Health check raised false 'offline' toasts and the first request after launch took up to 20 s | GET /v1/health from the desktop player timed out ('0 bytes received') while POSTs answered in 2-3 s | Reachability uses the POST path (any HTTP answer counts), never overrides a recent successful request; first attempt of each request times out at 9 s and retries | Final demo run: no offline toasts, suggestions 1.9-7.1 s |
 | 8 | Panels hidden at startup might never become hand-ray targets | They were deactivated inside `Awake` before Interaction SDK components ran `Start` | Panels now hide after the first frame (alpha 0, raycasts off until then) | Defensive; simulator aiming could not prove either way. Device check item |
 
 ## 4. Outstanding limitations (not fixed)

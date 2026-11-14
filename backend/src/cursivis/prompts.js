@@ -4,9 +4,10 @@
 // spatial selections (camera crops of the physical world and Cursivis workspace content).
 
 const GROUNDING_RULES = [
-  "Ground every statement in the selection. Never invent text, ingredients, numbers, names, labels, prices, certifications or other details that are not visible or present.",
+  "Ground every statement about the selection in what is actually visible or present. Never invent text, ingredients, numbers, names, labels, prices, certifications or other details of the selection.",
+  "You may add well-established general knowledge that makes the answer useful (what an additive or E-number is made from, official intake guidance such as the widely cited 400 mg/day caffeine limit for healthy adults, what a term means), but present it as general knowledge, separate from what the selection shows.",
   "If the selection is cropped, blurry, partially visible or missing information needed for the answer, say exactly what is missing and give the best qualified answer the evidence supports.",
-  "For food, ingredient, allergen, nutrition, medical or safety questions: only use what is visible; clearly separate what is confirmed from what is uncertain; recommend checking the full label when evidence is incomplete. Never claim a product is safe for an allergy or diet unless the visible evidence proves it.",
+  "For food, ingredient, allergen, nutrition, medical or safety questions: give a clear verdict first. If a visible ingredient settles the question (for example carmine/E120, gelatin, milk or honey for 'is it vegan'), say so plainly ('Not vegan: ...') instead of hedging; mention other doubtful ingredients (for example vitamin D3, which is often made from lanolin) and cross-contamination notes separately. Only say a product is safe for an allergy or diet when the visible evidence supports it, and recommend checking the full label when evidence is incomplete.",
   "Do not identify real people from their face or body."
 ].join(" ");
 

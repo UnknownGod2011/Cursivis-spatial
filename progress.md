@@ -1,42 +1,45 @@
-# Cursivis Spatial — progress
+# Cursivis Spatial: progress
 
-**Goal:** ship Cursivis Spatial, a hands-first Meta Quest 3/3S app (select anything → Cursivis orb → four AI suggestions
-+ Talk → spatial result card) for the Meta Horizon Start Developer Competition 2026 (deadline 2026-11-19 01:30 IST),
-Productivity track, Adapted division. No headset available: development and footage use the Meta XR Simulator.
+**Goal:** ship Cursivis Spatial, a hands-first Meta Quest 3/3S app (select anything → Cursivis orb → four AI
+suggestions + Talk → spatial result card) for the Meta Horizon Start Developer Competition 2026 (deadline
+2026-11-19 01:30 IST), Productivity track, Adapted division. No headset was available: development, tests and the
+demo video use the Meta XR Simulator.
 
-## Current phase
-Phase B/C (first complete flow + product UI) running in the simulator. APK build next.
+## Status (2026-11-14 19:00 IST)
+All buildable deliverables are done. What is left needs the developer's accounts (Meta Dashboard, YouTube, Devpost)
+or a physical headset. See `submission/RELEASE_CHECKLIST.md`.
 
-## Done (with evidence)
-- Backend (`backend/`): suggest/act/talk/speak, Gemini key pool + model fallback + hedging, abuse limits.
-  Unit 21/21, live 7/7 (real Gemini), deployed: https://cursivis-spatial.vercel.app (health + auth + real suggest verified).
-- Unity project (`unity/CursivisSpatial`): Unity 6000.4.6f1, OpenXR 1.19, Meta XR Core/ISDK/MRUK 209.0.0, URP.
-  Headless setup (`ProjectSetup`), scene from code (`SceneBuilder`), builds (`CursivisBuild`).
-- App code: orb (original graphite-glass identity), guided ring (4 AI + Talk), result card, workspace documents,
-  passthrough snip (MRUK PassthroughCameraAccess), push-to-talk, read-aloud, theme, metrics, autopilot harness.
-- Windows player runs in Meta XR Simulator 207.1 on this iGPU with **Vulkan** (D3D11 hung at swapchain creation);
-  OpenXR session FOCUSED; orb + dock rendered (screenshot `test-results/local/shots/lr1.png`, local only).
-- Meta XR Operator layer loads in the player (MCP on :8720, tool list retrieved) when
-  `XR_API_LAYER_PATH`/`XR_ENABLE_API_LAYERS` are set; it does not yet see the XrSession (investigating).
-- Docs: RESEARCH, CURSIVIS_PORT_AUDIT, UI_DESIGN_SPEC, INTERACTION_SPEC, ARCHITECTURE, TEST_PLAN, PREFLIGHT.
+| Deliverable | Where | Evidence |
+|---|---|---|
+| Quest APK 1.0.1 (code 2), release-signed | `builds/android/CursivisSpatial.apk`, GitHub release v1.0.1 | `aapt` + `apksigner` checks, `docs/TEST_PLAN.md` §5 |
+| Backend | https://cursivis-spatial.vercel.app | unit 23/23, live 7/7, production smoke flows |
+| Simulator end-to-end | `tools/demo-run.ps1` | 26/26 autopilot steps with live AI (2026-11-14 18:33) |
+| Demo video, 1:59, labelled simulator footage | `submission/media/cursivis-spatial-demo.mp4` (also on the GitHub release) | cut list `submission/media/demo-segments.tsv` |
+| Devpost stills | `submission/media/0*.png` | frames of the same recording |
+| Docs | `docs/`, `submission/`, `README.md` | |
 
-## In progress / next
-1. Rebuild with passthrough support = Required (was None → black background) and tracked-head placement.
-2. Simulator E2E via autopilot + simulated input; screenshots; fix UI issues.
-3. Quest APK (IL2CPP ARM64) + manifest verification.
-4. Demo footage in the simulator (labelled), submission docs, final audit.
+## Done
+- Backend: suggest / act / talk / speak; Gemini key pool with cooldowns, model fallback, hedging (3-3.5 s), re-hedge,
+  timeout fallback; grounding rules (clear "Not vegan" verdicts when a visible ingredient decides it, general
+  knowledge such as the 400 mg/day caffeine guidance marked as such); abuse limits.
+- Quest client: orb (9 moods), guided ring with four AI chips + Talk, result card (reveal, scroll, follow-ups, read
+  aloud, regenerate, pin, grab), workspace documents (research abstract, Spanish notice, energy drink label, code),
+  room Snip through MRUK `PassthroughCameraAccess`, push-to-talk and tap-to-talk, light/dark cross-fade, onboarding.
+- Fixes from simulator testing: locomotion off (rig fell), JPEG passthrough, tracking-space conversion, transition
+  table for typed Talk, exact spring step (NaN scale), layout clear of the workspace, panels hidden at startup now
+  become hand-ray targets, reachability check that does not raise false "offline" toasts, short first-attempt timeout
+  with retry for stalled connections.
 
-## Known issues
-- Simulator first run shows a consent dialog and a firewall prompt; dismiss before launching the app.
-- `Hand Interaction Profile` bindings fail in the simulator (XR_ERROR_HANDLE_INVALID) — harmless; Meta hand tracking aim is used.
+## Not verified (needs a Quest 3/3S)
+Frame rate, hand-pinch reliability on chips, camera and microphone permission flows, real voice input, comfort.
 
 ## Manual steps for the developer
-- Meta Horizon Developer Dashboard: create the app, release channel **Competition**, upload APK, enable URL invites (auto-approve).
-- Test the APK on a Quest 3/3S if one can be borrowed (all device behaviour is UNVERIFIED).
-- Devpost: video upload (YouTube/Vimeo public), submit.
+`submission/RELEASE_CHECKLIST.md`: Meta Dashboard app + "Competition" channel + invite URL, upload the APK, YouTube
+upload of the video, Devpost form, Start membership.
 
 ## Links
-docs/RESEARCH.md · docs/CURSIVIS_PORT_AUDIT.md · docs/ARCHITECTURE.md · docs/INTERACTION_SPEC.md · docs/UI_DESIGN_SPEC.md · docs/TEST_PLAN.md · docs/PREFLIGHT.md
+docs/RESEARCH.md · docs/CURSIVIS_PORT_AUDIT.md · docs/ARCHITECTURE.md · docs/INTERACTION_SPEC.md ·
+docs/UI_DESIGN_SPEC.md · docs/TEST_PLAN.md · docs/PREFLIGHT.md · docs/FINAL_AUDIT.md · docs/DEMO_SCRIPT.md
 
 ## Latest commit
-See `git log -1` (updated at each milestone).
+See `git log -1`.

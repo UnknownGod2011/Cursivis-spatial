@@ -1,0 +1,12 @@
+# start	end (or +hold)	title	subtitle	note  -- raw: test-results/local/video/demo-final.mkv (recording of tools/demo-run.ps1, 2026-11-14 18:33)
+29.0	36.5	Pinch to select	The simulated right hand points|at the code card and pinches:|the code is selected and the|Ask Cursivis chip appears.	Hand input: Meta XR Simulator|point-and-click (hand ray + pinch).
+50.5	58.3	Ask Cursivis	The orb moves next to the code|and reads it (about 7 s here).	From here on, steps are triggered by|the app's test autopilot, which calls|the same functions as the buttons.
+58.3	+2.5	Four actions + Talk	Explain Code · Find Bugs ·|Optimize Code · Document Code.|Talk is always the fifth option.	Frame held 2.5 s so the chips|can be read.
+58.3	69.5	Find Bugs	Live AI answer: off-by-one error.|The loop condition|i <= reviews.length fails on the|last iteration.	
+71.3	77.0	A notice in Spanish	Select the text. Suggestions:|Translate Notice · Action Items ·|Summarize Notice · Explain Details	
+77.0	89.0	Translate Notice	Live AI answer: next Tuesday,|3 December, the water supply will|be cut off between 9:00 and 14:00|for maintenance work.	The card scrolls with a pinch-drag.
+90.5	98.0	Energy drink label	Back of a can. A region over the|ingredients is selected. Suggestions:|Check Allergens · List Ingredients ·|Explain Additives · Health Warnings	Label artwork made for this demo,|no brand.
+98.0	108.0	Talk: "Is this vegan?"	Live AI answer: not vegan.|It contains E120 (carmine), a red|colour made from insects; vitamin D3|is often made from lanolin.	Question typed by the test autopilot|(the simulator has no microphone).
+108.0	126.0	Read aloud + follow-up	The orb reads the answer aloud.|Then: "How much caffeine is in|one can?" Live AI answer: 80 mg|per 250 ml can; about 400 mg a day|is the usual adult limit.	Audio is not in this recording.
+127.7	139.5	Snip the room	Passthrough Camera API: the room|camera frame is cropped to the box.|"What is this?" Live AI answer:|a window with dark curtains next|to a floor lamp.	Simulated room and simulated drag.
+140.2	155.0	Key Findings + theme	Research abstract: Key Findings.|Then a 240 ms cross-fade to the|light theme.	

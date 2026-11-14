@@ -19,11 +19,13 @@ the Windows app [Cursivis](https://github.com/UnknownGod2011/MX--cursivis) for m
 
 | Flow | Evidence |
 |---|---|
-| Workspace text → 4 suggestions → action → result → read aloud → follow-up | Autopilot run auto4: 20/20 steps, actions in 1.7-2.8 s |
-| Photo → suggestions → caption → regenerate | auto4 |
+| Workspace text → 4 suggestions → action → result → read aloud → follow-up | Autopilot runs: 20/20 (auto4), 26/26 (demo run) |
+| Energy drink label → "Is this vegan?" → "Not vegan: contains E120 (carmine)" → caffeine follow-up | Demo run 2026-11-14 |
+| Spanish notice → Translate; code → Find Bugs | Demo run 2026-11-14 |
+| Image → suggestions → caption → regenerate | auto4 |
 | Room Snip through MRUK `PassthroughCameraAccess` (1280×960 simulator camera) → suggestions → Talk about it | auto4, `snip-preview.png` |
 | General conversation from the orb | auto4 |
-| Simulated hand pinch selects workspace text and the photo | simulator, right-hand ray + pinch |
+| Simulated hand pinch selects workspace documents | simulator, right-hand ray + pinch |
 | Backend unit tests | `npm test`: 23/23 |
 | Backend live tests (real Gemini) | `npm run test:live`: 7/7 |
 
@@ -87,5 +89,6 @@ Simulator setup notes (Vulkan, JPEG passthrough, seated rig, hand input): [`docs
 
 ## Credits and licences
 - Fonts: Inter and IBM Plex Mono (SIL Open Font License 1.1), Material Icons (Apache 2.0).
-- Workspace photo: "Floras Lake" by BLM Oregon & Washington, public domain (Wikimedia Commons).
+- Energy drink label: original artwork made for the demo (	ools/make-product-label.ps1), no brand.
+- Backend test photo: "Floras Lake" by BLM Oregon & Washington, public domain (Wikimedia Commons).
 - Meta XR SDK packages are used under the Meta Platform Technologies SDK licence; Unity packages under their licences.

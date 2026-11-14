@@ -335,6 +335,7 @@ namespace Cursivis.Spatial.Selection
     public sealed class WorkspaceImage : MonoBehaviour, IPointerDownHandler, IDragHandler, IPointerUpHandler, IInitializePotentialDragHandler
     {
         public string Title;
+        public string DocType { get; set; } = "photo"; // runtime-only (not serialized)
         public RawImage Image;
         public event Action<WorkspaceImage, Rect, Vector3[]> Selected; // uv rect (0..1, bottom-left origin)
         RoundedRect _rect;
