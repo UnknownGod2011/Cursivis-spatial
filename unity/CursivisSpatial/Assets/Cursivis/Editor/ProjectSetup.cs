@@ -30,7 +30,7 @@ namespace Cursivis.Spatial.EditorTools
         // Features we want enabled for each target, matched by OpenXR feature id (exact) or type name (fallback).
         static readonly string[] AndroidFeatureIds =
         {
-            "com.unity.openxr.feature.oculusquest",          // Meta Quest Support
+            "com.unity.openxr.feature.metaquest",            // Meta Quest Support (OpenXR 1.13+; replaces the deprecated "oculusquest" feature)
             "com.meta.openxr.feature.metaxr",                // Meta XR Feature (Core SDK)
             "com.meta.openxr.feature.foveation",
             "com.unity.openxr.feature.input.handtracking",   // XR Hands
@@ -40,6 +40,8 @@ namespace Cursivis.Spatial.EditorTools
             "com.unity.openxr.feature.input.metaquestplus",
             "com.unity.openxr.feature.input.metaquestpro",
         };
+        static readonly string[] DeprecatedFeatureIds = { "com.unity.openxr.feature.oculusquest" };
+
         static readonly string[] StandaloneFeatureIds =
         {
             "com.meta.openxr.feature.metaxr",
@@ -167,6 +169,41 @@ namespace Cursivis.Spatial.EditorTools
             QualitySettings.SetQualityLevel(names.Length - 1, false);
         }
 
+        /// <summary>
+        /// Called by CursivisBuild.BuildAndroid: re-applies the Android OpenXR feature selection, then runs Unity's
+        /// OpenXR project validation, applies every automatic fix and logs anything that is left.
+        /// Returns the number of remaining validation errors.
+        /// </summary>
+        public static int PrepareAndroidXr()
+        {
+            ConfigureXr(BuildTargetGroup.Android, AndroidFeatureIds);
+            AssetDatabase.SaveAssets();
+            var issues = new System.Collections.Generic.List<OpenXRFeature.ValidationRule>();
+            for (int pass = 0; pass < 3; pass++)
+            {
+                issues.Clear();
+                UnityEditor.XR.OpenXR.OpenXRProjectValidation.GetCurrentValidationIssues(issues, BuildTargetGroup.Android);
+                if (issues.Count == 0) break;
+                bool fixedAny = false;
+                foreach (var rule in issues)
+                {
+                    Log($"[Android] OpenXR validation {(rule.error ? "ERROR" : "warning")}: {rule.message}{(rule.fixItAutomatic && rule.fixIt != null ? " -> auto-fix" : "")}");
+                    if (rule.fixItAutomatic && rule.fixIt != null)
+                    {
+                        try { rule.fixIt(); fixedAny = true; }
+                        catch (Exception e) { Log($"[Android]   fix failed: {e.Message}"); }
+                    }
+                }
+                AssetDatabase.SaveAssets();
+                if (!fixedAny) break;
+            }
+            issues.Clear();
+            UnityEditor.XR.OpenXR.OpenXRProjectValidation.GetCurrentValidationIssues(issues, BuildTargetGroup.Android);
+            int errors = issues.Count(r => r.error);
+            foreach (var rule in issues) Log($"[Android] OpenXR validation remaining ({(rule.error ? "ERROR" : "warning")}): {rule.message}");
+            return errors;
+        }
+
         static void ConfigureXr(BuildTargetGroup group, string[] wantedFeatureIds)
         {
             if (!EditorBuildSettings.TryGetConfigObject(XRGeneralSettings.k_SettingsKey, out XRGeneralSettingsPerBuildTarget perTarget) || perTarget == null)
@@ -207,9 +244,16 @@ namespace Cursivis.Spatial.EditorTools
             foreach (var feature in settings.GetFeatures())
             {
                 var id = GetFeatureId(feature);
-                if (wantedFeatureIds.Contains(id) && !feature.enabled)
+                bool wanted = wantedFeatureIds.Contains(id) || (group == BuildTargetGroup.Android && feature.GetType().Name == "MetaQuestFeature");
+                if (wanted && !feature.enabled)
                 {
                     feature.enabled = true;
+                    EditorUtility.SetDirty(feature);
+                }
+                else if (DeprecatedFeatureIds.Contains(id) && feature.enabled)
+                {
+                    // The OpenXR build validator fails Android builds while the deprecated Oculus Quest feature is on.
+                    feature.enabled = false;
                     EditorUtility.SetDirty(feature);
                 }
             }

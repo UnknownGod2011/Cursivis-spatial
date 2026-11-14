@@ -9,7 +9,7 @@ Implementation: `unity/CursivisSpatial/Assets/Cursivis/Scripts/App/CursivisApp.c
 
 ## 1. User journey
 
-1. **Idle.** The orb floats low-right in the user's view (0.58 m away, 0.20 m right, 0.19 m below the eyes) with a dock:
+1. **Idle.** The orb floats low-right in the user's view (0.58 m away, 0.21 m right, 0.235 m below the eyes) with a dock:
    **Snip · Workspace · Theme · Help**. It lazily re-centres when the user turns more than 30° or moves 35 cm.
    The Cursivis workspace (four documents: research abstract, Spanish notice, photo, code) sits in a 2×2 arc 1 m away.
 2. **Select.**

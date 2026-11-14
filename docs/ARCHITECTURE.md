@@ -22,7 +22,7 @@ flowchart LR
     SVC --> GC[gemini/client.js\nmodel fallback, hedging, timeouts]
     GC --> KP[gemini/keyPool.js\nleast-loaded rotation, cooldowns]
   end
-  KP -- "x-goog-api-key" --> G[Google Gemini API\n3.5/3.6 flash, 3.8 flash-lite TTS]
+  KP -- "x-goog-api-key" --> G[Google Gemini API\n3.5 / 3.1 flash-lite, flash fallbacks,\n3.8 flash-lite TTS]
 ```
 
 ## Quest client modules (`unity/CursivisSpatial/Assets/Cursivis/Scripts`)
@@ -84,18 +84,36 @@ Rotation: add a new token, ship, remove the old one.
 
 ## Model routing and resilience
 
-- Fast chain (suggestions): `gemini-3.5-flash-lite → gemini-3.6-flash → gemini-3.1-flash-lite → gemini-flash-lite-latest`, thinking `minimal`.
-- Quality chain (act/talk): `gemini-3.5-flash → gemini-3.6-flash → gemini-3.5-flash-lite → gemini-3.1-flash-lite`, thinking `low`.
+### Model choice (measured, 2026-11-14 free-tier probe, act-sized prompt)
+
+| Model | Latency (thinking minimal / low) | Role |
+|---|---|---|
+| gemini-3.5-flash-lite | 2.2 s / 1.2 s | primary for everything |
+| gemini-3.1-flash-lite | 1.5 s / 1.4 s | hedge (different model family, independent load) |
+| gemini-3.5-flash | 15.1 s / 19.6 s | late fallback only |
+| gemini-3.6-flash | 43.8 s / 30.6 s | last resort |
+
+An interactive headset UI cannot wait 15-40 s, so the larger models are only reached when both flash-lite models fail.
+The flash-lite answers passed the same live grounding tests (`npm run test:live`).
+
+- Fast chain (suggestions): `gemini-3.5-flash-lite → gemini-3.1-flash-lite → gemini-flash-lite-latest → gemini-3.5-flash`, thinking `minimal`.
+- Quality chain (act/talk): `gemini-3.5-flash-lite → gemini-3.1-flash-lite → gemini-3.5-flash → gemini-3.6-flash`, thinking `low`.
 - TTS chain: `gemini-3.8-flash-lite-tts → gemini-3.8-flash-tts → gemini-2.5-flash-preview-tts`.
 - Per attempt: 22 s timeout. 403/401 disables the key for 6 h; 429 cools the key for the server's retryDelay (default 60 s);
-  503 marks the model overloaded for 45 s and moves down the chain; 400 retries once without thinking/schema; invalid JSON
-  output moves to the next model; safety blocks are not retried.
-- Hedging: if the first attempt hasn't answered after 4.5 s (suggest) or 14 s (act/talk), a second attempt starts on another key
-  (and the next model); the first valid answer wins and the other is aborted.
+  503 marks the model overloaded for 45 s and moves down the chain; a timeout also moves down the chain (a slow model
+  tends to stay slow); 400 retries once without thinking/schema; invalid JSON output moves to the next model; safety
+  blocks are not retried.
+- Hedging: if the first attempt hasn't answered after 3.0 s (suggest) or 3.5 s (act/talk), a second attempt starts on
+  another key and the next model. From then on two attempts stay in flight: if one fails while the other is still
+  running, a replacement starts immediately. The first valid answer wins and the others are aborted.
+- Effect: actions went from 7.7 s (auto3, gemini-3.5-flash first with a 6 s hedge) to 1.3-2.6 s (auto4).
 - Caches: suggestions and action results per selection fingerprint for 10 minutes (regenerate bypasses).
 
 ## Build and deploy
 
-- Quest APK: `CURSIVIS_BACKEND_URL=https://cursivis-spatial.vercel.app CURSIVIS_APP_TOKEN=<token> tools/unity-batch.ps1 -Method Cursivis.Spatial.EditorTools.CursivisBuild.BuildAndroid -Target Android -Name apk`
+- Quest APK: `tools/build-apk.ps1 -VersionCode <n>` (production backend URL, client token from `backend/.env`, release
+  signing from a keystore outside the repo whose password is stored DPAPI-encrypted). Before building it re-applies the
+  Android OpenXR features (Meta Quest Support, not the deprecated Oculus Quest feature) and runs Unity's OpenXR project
+  validation with automatic fixes.
 - Simulator player: same with `BuildWindows` / `StandaloneWindows64`, then `tools/run-sim.ps1`.
 - Backend: `cd backend && vercel deploy --prod` (env vars set once with `vercel env add`).

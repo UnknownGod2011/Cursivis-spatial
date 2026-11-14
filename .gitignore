@@ -65,3 +65,4 @@ unity/CursivisSpatial/Assets/Cursivis/Resources/CursivisRuntimeConfig.json.meta
 
 # SDK-generated copy of the Meta XR Operator OpenXR layer (recreated by the Core SDK on activation)
 unity/CursivisSpatial/Assets/XR/APILayers~/
+unity/CursivisSpatial/.utmp/

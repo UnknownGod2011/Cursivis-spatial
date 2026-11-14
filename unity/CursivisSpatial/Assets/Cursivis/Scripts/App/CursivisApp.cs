@@ -907,7 +907,7 @@ namespace Cursivis.Spatial.App
             _homeYaw = YawOnly(head.rotation).eulerAngles.y;
             _homeAnchor = head.position;
             var yaw = Quaternion.Euler(0, _homeYaw, 0);
-            _orbTarget = head.position + yaw * new Vector3(0.20f, -0.19f, 0.58f);
+            _orbTarget = head.position + yaw * new Vector3(0.21f, -0.235f, 0.58f); // ~20 deg right, ~22 deg down
             _orbRotTarget = Quaternion.LookRotation(_orbTarget - head.position, Vector3.up);
             if (snap) OrbCanvas.transform.SetPositionAndRotation(_orbTarget, _orbRotTarget);
             var toastPos = head.position + yaw * new Vector3(0.0f, -0.08f, 0.62f);
@@ -919,7 +919,9 @@ namespace Cursivis.Spatial.App
             if (WorkspaceCanvases == null) return;
             var head = HeadPose();
             var baseYaw = YawOnly(head.rotation).eulerAngles.y;
-            var cells = new[] { new Vector2(-13.5f, 9f), new Vector2(13.5f, 9f), new Vector2(-13.5f, -9.5f), new Vector2(13.5f, -9.5f) };
+            // 2x2 grid of 400x300 mm cards at 1 m (each ~23 x 17 degrees). Rows sit slightly high so the home orb and
+            // dock (lower right, about -22 degrees) never overlap the bottom-right card.
+            var cells = new[] { new Vector2(-13.5f, 11.5f), new Vector2(13.5f, 11.5f), new Vector2(-13.5f, -7f), new Vector2(13.5f, -7f) };
             for (int i = 0; i < WorkspaceCanvases.Length && i < cells.Length; i++)
             {
                 var rot = Quaternion.Euler(-cells[i].y, baseYaw + cells[i].x, 0);

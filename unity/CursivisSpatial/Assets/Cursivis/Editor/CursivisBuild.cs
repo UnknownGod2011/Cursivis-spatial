@@ -47,13 +47,39 @@ namespace Cursivis.Spatial.EditorTools
             Run(BuildTarget.StandaloneWindows64, Path.Combine(RepoRoot, "builds/windows/CursivisSpatial.exe"), "windows-sim");
         }
 
+        // Release signing (the Meta Horizon Store rejects debug-signed APKs). The keystore and its passwords live outside
+        // the repository and are passed in through the environment:
+        //   CURSIVIS_KEYSTORE_PATH, CURSIVIS_KEYSTORE_PASS, CURSIVIS_KEY_ALIAS, CURSIVIS_KEY_PASS
+        // Without them the APK is signed with the Unity debug key (fine for sideloading, not for store upload).
         public static void BuildAndroid()
         {
             var version = Environment.GetEnvironmentVariable("CURSIVIS_VERSION_CODE");
             if (int.TryParse(version, out var code)) PlayerSettings.Android.bundleVersionCode = code;
             EditorUserBuildSettings.androidBuildSubtarget = MobileTextureSubtarget.ASTC;
             EditorUserBuildSettings.buildAppBundle = false;
-            PlayerSettings.Android.useCustomKeystore = false;
+            // Disk and build-time budget on the dev laptop: no symbols.zip, and IL2CPP generates size-optimized C++
+            // (less generic code duplication; smaller libil2cpp.so). The first full build ran out of disk without these.
+            EditorUserBuildSettings.androidCreateSymbols = AndroidCreateSymbols.Disabled;
+            PlayerSettings.SetIl2CppCodeGeneration(NamedBuildTarget.Android, Il2CppCodeGeneration.OptimizeSize);
+            var keystore = Environment.GetEnvironmentVariable("CURSIVIS_KEYSTORE_PATH");
+            if (!string.IsNullOrEmpty(keystore) && File.Exists(keystore))
+            {
+                PlayerSettings.Android.useCustomKeystore = true;
+                PlayerSettings.Android.keystoreName = keystore;
+                PlayerSettings.Android.keystorePass = Environment.GetEnvironmentVariable("CURSIVIS_KEYSTORE_PASS") ?? "";
+                PlayerSettings.Android.keyaliasName = Environment.GetEnvironmentVariable("CURSIVIS_KEY_ALIAS") ?? "cursivis";
+                PlayerSettings.Android.keyaliasPass = Environment.GetEnvironmentVariable("CURSIVIS_KEY_PASS") ?? PlayerSettings.Android.keystorePass;
+                Debug.Log($"[CursivisBuild] release signing with {Path.GetFileName(keystore)} alias={PlayerSettings.Android.keyaliasName}");
+            }
+            else
+            {
+                PlayerSettings.Android.useCustomKeystore = false;
+                Debug.LogWarning("[CursivisBuild] CURSIVIS_KEYSTORE_PATH not set: debug-signed APK (sideload only, the store rejects it).");
+            }
+            Debug.Log($"[CursivisBuild] android versionName={PlayerSettings.bundleVersion} versionCode={PlayerSettings.Android.bundleVersionCode}");
+            int xrErrors = ProjectSetup.PrepareAndroidXr();
+            Debug.Log($"[CursivisBuild] OpenXR validation errors remaining: {xrErrors}");
+            // Unity never serializes keystorePass/keyaliasPass; Run() exits the editor when the build finishes.
             Run(BuildTarget.Android, Path.Combine(RepoRoot, "builds/android/CursivisSpatial.apk"), "quest");
         }
 

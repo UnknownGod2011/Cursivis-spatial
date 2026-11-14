@@ -123,14 +123,22 @@ Theme state:
 | Status shine | Period 2.35 s (Understanding, Processing, ProcessingVoice) or 2.0 s (Listening). Band ±0.22 of the text width, mix 0.9, left → right. | Same periods. Swept right → left with strength 0.64 dark / 0.28 light. |
 | Wordmark shine | 2.65 s dark / 3.35 s light. Band ±0.18, strength 0.94 / 0.32, left → right. | Same periods and strengths |
 | Guided ring fade (`ChipShowSec` / `ChipHideSec`) | Whole ring alpha, linear, in 0.18 s / out 0.22 s | Per chip, quad ease |
-| Chip reveal | Each chip moves from 55% of its offset to 100% in 0.26 s, ease-out cubic, 40 ms stagger (`OrbHud.cs:221-230`) | new |
+| Chip fly-out | Each suggestion chip flies from 18% of its offset (inside the orb) to its slot in 0.34 s, ease-out cubic, 45 ms stagger, scale 0.6 → 1; the Talk chip launches last (`OrbHud.cs:268-290`) | new |
+| Chip shimmer while loading | Alpha 0.55-0.85, sine at 4.2 rad/s with a 0.9 rad phase step per chip; labels stay "…" until the real AI labels arrive (no fake results) | The original showed "..." placeholders |
+| Chip landing pop | When the real labels arrive each chip pops 0.9 → 1 with ease-out-back over 0.3 s, 50 ms stagger | new |
+| Talk glow | Soft glow behind Talk breathes at 2.6 rad/s while the ring is up; while listening it follows the mic level (alpha 0.35 + 0.45·level, 6.5 rad/s) | new |
 | Body reveal | TMP `maxVisibleWords`. ≤110 words: 1 word per 20 ms. >110: 2 per 17 ms. >200: 3 per 14 ms. >320: 4 per 12 ms. | Same thresholds (the original counted regex tokens) |
-| Button feedback | Scale 1.02 on hover, 0.965 when pressed, exponential approach at 22/s | Instant, no scale |
+| Follow-up chips | Appear after the reveal finishes: scale 0.85 → 1 with ease-out-back over 0.25 s, 70 ms stagger (`ResultCard.cs:388-390`) | new |
+| Card loading shimmer | A soft highlight sweeps down the skeleton lines while the AI works (`ResultCard.cs:394`) | new |
+| Button feedback | Critically damped spring (ω = 26/s, exact closed-form step so it stays stable at any frame rate): 1.03 on hover, 0.955 pressed, +1.2 velocity kick on click; colours ease at 24/s; a white border flash fades over 0.28 s on click (`UiKit.cs`) | Instant, no scale |
+| Orb idle breathing | Scale ±1.2% on a 4.6 s sine (`OrbView.cs:122`) | new |
+| Orb acknowledgement pop | +9% bump over 0.45 s when a selection is made (`OrbView.cs:123-124`) | new |
+| Orb error shake | Horizontal shake, 3.2 mm amplitude decaying over 0.42 s, with the error tint (`OrbView.cs:128-129`) | Errors looked like success |
 | Orb shader blends | Arc, ring and error tint approach at 8/s, glow at 5/s, mic level at 18/s. The arc spins at 2.4 rad/s (about 2.6 s per turn). | new |
 | Orb follow | Position and rotation approach at 7/s | new |
 | Dock fade / toast fade | 0.2 s / 0.18 s. Toasts stay 4 s. | new |
 | Skeleton pulse | Sine at 1.6 rad/s, alpha 0.05-0.10 (+0.03 on the top stop), 0.55 rad phase step per bar | new |
-| Theme switch | Instant | Instant |
+| Theme switch | 0.24 s cross-fade of every palette colour, ease-out cubic (`ThemeFader`, `CursivisTheme.cs`) | Instant. A large panel flipping from dark to white at once is uncomfortable in a headset |
 
 ## 6. Orb (`Scripts/UI/OrbView.cs`, `Resources/Shaders/CursivisOrb.shader`, `Scripts/UI/OrbHud.cs:47-79`)
 
@@ -173,12 +181,14 @@ Theme state:
 
 ### 6.3 Placement (`App/CursivisApp.cs:859-961`)
 - **Home:**
-  - The orb sits at head + yaw·(0.20 m right, 0.19 m down, 0.58 m forward), facing the head.
+  - The orb sits at head + yaw·(0.21 m right, 0.235 m down, 0.58 m forward), about 20° right and 22° down, facing the head.
   - It re-centers when the head turns more than 30° or moves more than 35 cm. It does not move while Talk is listening.
-- **Near a selection:**
-  - Distance is `clamp(0.85 × selection distance, 0.5, 0.72)` m.
-  - It is offset sideways by half the scaled selection width (at most 0.2 m) plus 0.2 m, on the side toward the center of view.
-  - Height is clamped to −0.32 … +0.08 m relative to the eyes.
+- **Near a selection** (rewritten after simulator screenshots showed the ring and card at the edge of the view):
+  - The orb hugs the edge of the selection that faces the centre of the view: yaw = selection yaw ∓ (half its angular
+    width − 2°), clamped to ±24°; pitch = selection pitch − 2°, clamped to −24° … +6°.
+  - Distance is `clamp(0.62 × selection distance, 0.5, 0.66)` m, so it floats in front of the workspace documents.
+- **Layout follow:** if the head ends up more than 45 cm from where the layout was built (a recenter, the user moving,
+  or a simulator pose jump), the workspace, orb, card, chip and onboarding panels move with it.
 
 ## 7. Guided ring and home dock (`Scripts/UI/OrbHud.cs`)
 
@@ -259,8 +269,9 @@ The card is 520×404 mm, centered at (0, +8) on the 540×430 ResultCanvas, with 
 | Listening for a follow-up | "Ask follow-up" and the header mic show Selected. The label reads "Listening…". |
 
 ### 8.4 Placement (`CursivisApp.cs:913-927`, `:947-957`)
-- **Initial position:** `ResultRoot` goes 0.78 m from the head at eye height −0.06 m, facing the head.
-  - Yaw: the orb's direction rotated 24° further out on the orb's side, or 22° toward the left when the orb is at home.
+- **Initial position:** `ResultRoot` goes 0.8 m from the head, 5 cm below eye height, facing the head.
+  - Yaw: on the far side of the orb from the selection (orb yaw ∓ 21°), or 22° left of a home orb, clamped to ±18°.
+    The card is about 38° wide at 0.8 m, so it stays inside a ±37° cone and never covers the selection's inner edge.
 - **Pinned (default):** the card stays in place.
 - **Unpinned:** when the card is more than 35° off the forward direction, it drifts to −18° yaw at 0.78 m.
 - **Expand:** scales `ResultRoot` by 1.28.
@@ -298,7 +309,7 @@ The card is 520×404 mm, centered at (0, +8) on the 540×430 ResultCanvas, with 
 
 ### 9.3 Workspace panels (`Scripts/App/AppPanels.cs:15-139`)
 - Four 400×300 mm canvases ("Research abstract", "Aviso a los vecinos", "Photo · coastal footbridge", "reviews.js"), with ray and poke.
-- Placement: 1.0 m from the head, 0.06 m below eye level, in a 2×2 grid at yaw ±13.5° and pitch +9° / −9.5°, each facing the head (`CursivisApp.cs:872-892`).
+- Placement: 1.0 m from the head, 0.06 m below eye level, in a 2×2 grid at yaw ±13.5° and pitch +11.5° / −7°, each facing the head (rows sit high so the home orb and dock never cover the bottom-right card) (`CursivisApp.cs:872-892`).
 - Shell: 394×294, r 22.9, 14 mm shadow.
 - Header row:
   - 20 mm glyph in TextMuted.

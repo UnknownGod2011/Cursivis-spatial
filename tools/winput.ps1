@@ -31,6 +31,7 @@ public static class CursivisInput {
   [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
   [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h, int cmd);
   [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
+  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
   [DllImport("user32.dll")] public static extern bool SetCursorPos(int x, int y);
   [DllImport("user32.dll")] public static extern void mouse_event(uint f, int dx, int dy, uint d, UIntPtr e);
   [DllImport("user32.dll")] public static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
@@ -44,7 +45,9 @@ $p = Get-Process -Name $Process -ErrorAction SilentlyContinue | Where-Object { $
 if (-not $p) { throw "No window for $Process" }
 $h = $p.MainWindowHandle
 [CursivisInput]::ShowWindow($h, $(if ([CursivisInput]::IsIconic($h)) { 9 } else { 5 })) | Out-Null
-[CursivisInput]::SetForegroundWindow($h) | Out-Null
+# Windows only lets the foreground process change focus; a synthetic Alt tap lifts that lock.
+if ([CursivisInput]::GetForegroundWindow() -ne $h) { [CursivisInput]::keybd_event(0x12, 0, 0, [UIntPtr]::Zero); [CursivisInput]::keybd_event(0x12, 0, 2, [UIntPtr]::Zero); [CursivisInput]::SetForegroundWindow($h) | Out-Null }
+if ($Info) { Write-Output ("foreground={0}" -f ([CursivisInput]::GetForegroundWindow() -eq $h)) }
 if ($Maximize) { [CursivisInput]::ShowWindow($h, 3) | Out-Null; Start-Sleep -Milliseconds 400 }
 Start-Sleep -Milliseconds 150
 $r = New-Object CursivisInput+RECT
