@@ -245,6 +245,15 @@ namespace Cursivis.Spatial.EditorTools
             {
                 var id = GetFeatureId(feature);
                 bool wanted = wantedFeatureIds.Contains(id) || (group == BuildTargetGroup.Android && feature.GetType().Name == "MetaQuestFeature");
+                // Simulator (Standalone) only: the Microsoft hand interaction profile shares the XR Hands feature id but the
+                // simulator rejects its bindings (XR_ERROR_HANDLE_INVALID), and the API-layers feature makes MetaXRFeature try
+                // to register Meta XR Operator tools that are not loaded. Both only produced console errors.
+                bool unwantedOnStandalone = group == BuildTargetGroup.Standalone && (feature.GetType().Name == "MicrosoftHandInteraction" || feature.GetType().Name == "ApiLayersFeature");
+                if (unwantedOnStandalone)
+                {
+                    if (feature.enabled) { feature.enabled = false; EditorUtility.SetDirty(feature); }
+                    continue;
+                }
                 if (wanted && !feature.enabled)
                 {
                     feature.enabled = true;

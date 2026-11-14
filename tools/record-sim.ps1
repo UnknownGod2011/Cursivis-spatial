@@ -35,5 +35,7 @@ if ($Log) {
   Start-Process powershell -WindowStyle Hidden -ArgumentList "-ExecutionPolicy Bypass -File `"$(Join-Path $PSScriptRoot 'flow-timeline.ps1')`" -Log `"$Log`" -Out `"$tl`" -Seconds $($Seconds + 5)"
   Write-Output "timeline -> $tl"
 }
+# wall-clock start, used by tools/demo-click.ps1 to timestamp actions against the video
+Set-Content -Path ([IO.Path]::ChangeExtension($Out, ".start.txt")) -Value (Get-Date).ToString("o") -Encoding ASCII
 & $ff @args
 if (Test-Path $Out) { Write-Output ("saved {0} ({1:n1} MB)" -f $Out, ((Get-Item $Out).Length / 1MB)) }

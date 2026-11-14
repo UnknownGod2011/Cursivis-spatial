@@ -349,6 +349,8 @@ namespace Cursivis.Spatial.UI
         Action _done;
         public bool Visible { get; private set; }
 
+        bool _deactivateAfterFirstFrame;
+
         public void Init(RectTransform content)
         {
             _content = content;
@@ -358,7 +360,18 @@ namespace Cursivis.Spatial.UI
             _group.blocksRaycasts = false;
             _group.interactable = false;
             Visible = false;
-            gameObject.SetActive(false);
+            // Do not deactivate the canvas root here (this runs inside CursivisApp.Awake). The Interaction SDK
+            // components on the canvas (PointableCanvas, RayInteractable, PokeInteractable) must run Start while the
+            // object is active; panels deactivated before that never became hand-ray targets and a pinch went straight
+            // through them to whatever was behind. Hide after the first frame instead (alpha is already 0).
+            _deactivateAfterFirstFrame = true;
+        }
+
+        void LateUpdate()
+        {
+            if (!_deactivateAfterFirstFrame) return;
+            _deactivateAfterFirstFrame = false;
+            if (!Visible) gameObject.SetActive(false);
         }
 
         public void Show(Action done = null)

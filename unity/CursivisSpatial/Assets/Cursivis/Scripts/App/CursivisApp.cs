@@ -138,6 +138,10 @@ namespace Cursivis.Spatial.App
         {
             _hud.Orb.SetMood(OrbMood.Idle, null);
             _ = HealthLoop(_lifetimeCts.Token);
+            yield return null; // every Interaction SDK component in the scene has run Start by now
+            SnipCanvas.gameObject.SetActive(false);
+            var snipCanvas = SnipCanvas.GetComponent<Canvas>();
+            if (snipCanvas != null) snipCanvas.enabled = true;
             // Wait for a tracked head pose before placing anything (the first frames report the origin).
             float t0 = Time.realtimeSinceStartup;
             while (Time.realtimeSinceStartup - t0 < 4f && (Head == null || Head.position.sqrMagnitude < 0.01f || Time.frameCount < 20)) yield return null;
@@ -200,7 +204,9 @@ namespace Cursivis.Spatial.App
             _snip.Started += () => Flow.Go(FlowState.Selecting, "pinch down");
             _snip.Completed += corners => _ = OnSnipCompletedAsync(corners);
             _snip.Rejected += msg => { Toast(msg); Flow.Go(FlowState.SelectionReady, "rejected"); };
-            SnipCanvas.gameObject.SetActive(false);
+            // Hidden after the first frame (see Start), not here: Interaction SDK components must Start while active.
+            var snipCanvas = SnipCanvas.GetComponent<Canvas>();
+            if (snipCanvas != null) snipCanvas.enabled = false;
 
             _workspace = gameObject.AddComponent<Workspace>();
             _workspace.Build(WorkspaceCanvases);
@@ -330,7 +336,9 @@ namespace Cursivis.Spatial.App
             _depthHit = null;
             if (EnvironmentRaycast == null) return;
             bool supported;
-            try { supported = EnvironmentRaycastManager.IsSupported; } catch (Exception) { supported = false; }
+            // Both checks: the raycast manager can report support while the depth provider itself is unavailable
+            // (the simulator), and enabling EnvironmentDepthManager then only logs errors. The snip falls back to 0.85 m.
+            try { supported = EnvironmentRaycastManager.IsSupported && EnvironmentDepthManager.IsSupported; } catch (Exception) { supported = false; }
             if (!supported) return;
             SetDepth(true);
             float t0 = Time.realtimeSinceStartup;
@@ -907,7 +915,8 @@ namespace Cursivis.Spatial.App
             _homeYaw = YawOnly(head.rotation).eulerAngles.y;
             _homeAnchor = head.position;
             var yaw = Quaternion.Euler(0, _homeYaw, 0);
-            _orbTarget = head.position + yaw * new Vector3(0.21f, -0.235f, 0.58f); // ~20 deg right, ~22 deg down
+            // ~15 deg right, ~23 deg down: below the workspace, and the 404 mm dock under it stays inside the left eye's view.
+            _orbTarget = head.position + yaw * new Vector3(0.15f, -0.25f, 0.56f);
             _orbRotTarget = Quaternion.LookRotation(_orbTarget - head.position, Vector3.up);
             if (snap) OrbCanvas.transform.SetPositionAndRotation(_orbTarget, _orbRotTarget);
             var toastPos = head.position + yaw * new Vector3(0.0f, -0.08f, 0.62f);
@@ -921,7 +930,9 @@ namespace Cursivis.Spatial.App
             var baseYaw = YawOnly(head.rotation).eulerAngles.y;
             // 2x2 grid of 400x300 mm cards at 1 m (each ~23 x 17 degrees). Rows sit slightly high so the home orb and
             // dock (lower right, about -22 degrees) never overlap the bottom-right card.
-            var cells = new[] { new Vector2(-13.5f, 11.5f), new Vector2(13.5f, 11.5f), new Vector2(-13.5f, -7f), new Vector2(13.5f, -7f) };
+            // Measured in the simulator's left-eye view: with the bottom row at -5.5 deg (-8.9 deg after the 6 cm drop) its
+            // lower edge sits at about -17.4 deg, clear of the home orb's top edge (-19.3 deg) and the dock below it.
+            var cells = new[] { new Vector2(-13.5f, 12.5f), new Vector2(13.5f, 12.5f), new Vector2(-13.5f, -5.5f), new Vector2(13.5f, -5.5f) };
             for (int i = 0; i < WorkspaceCanvases.Length && i < cells.Length; i++)
             {
                 var rot = Quaternion.Euler(-cells[i].y, baseYaw + cells[i].x, 0);
@@ -1102,8 +1113,18 @@ namespace Cursivis.Spatial.App
             _requestCts = null;
         }
 
+        bool _onlineKnown;
+
         void SetOnline(bool online)
         {
+            if (!_onlineKnown)
+            {
+                // first result: no "Back online" toast at startup, only a warning if we start offline
+                _onlineKnown = true;
+                Online = online;
+                if (!online) Toast("Cursivis is offline. Check the internet connection.");
+                return;
+            }
             if (Online == online) return;
             Online = online;
             if (!online) Toast("Cursivis is offline. Check the internet connection.");
@@ -1119,13 +1140,27 @@ namespace Cursivis.Spatial.App
                 Toast("This build has no AI backend configured.");
                 return;
             }
+            int failedRounds = 0;
             while (!ct.IsCancellationRequested)
             {
                 bool ok;
-                try { ok = await _api.HealthAsync(ct); }
+                try
+                {
+                    ok = await _api.HealthAsync(ct);
+                    // one slow or dropped health check (serverless cold start, Wi-Fi hiccup) is not "offline":
+                    // confirm with a second check before counting the round as failed
+                    if (!ok)
+                    {
+                        await Task.Delay(3000, ct);
+                        ok = await _api.HealthAsync(ct);
+                    }
+                }
                 catch (OperationCanceledException) { return; }
-                SetOnline(ok);
-                try { await Task.Delay(ok ? 60000 : 12000, ct); }
+                failedRounds = ok ? 0 : failedRounds + 1;
+                // Idle-state check only: declare offline after two failed rounds (~30 s). Real requests report network
+                // errors immediately through SetOnline(false) in their own error handlers.
+                if (ok || failedRounds >= 2) SetOnline(ok);
+                try { await Task.Delay(ok ? 60000 : 8000, ct); }
                 catch (OperationCanceledException) { return; }
             }
         }

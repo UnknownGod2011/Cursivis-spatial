@@ -52,8 +52,10 @@ namespace Cursivis.Spatial.App
             var scenarios = _scenario == "all" ? new[] { "workspace", "photo", "general", "snip" } : _scenario.Split(',');
             foreach (var s in scenarios)
             {
+                Debug.Log($"[CursivisAuto] begin {s} at={DateTime.Now:HH:mm:ss.fff}");
                 switch (s)
                 {
+                    case "code": yield return Code(); break;
                     case "workspace": yield return Workspace(); break;
                     case "photo": yield return Photo(); break;
                     case "general": yield return General(); break;
@@ -74,7 +76,8 @@ namespace Cursivis.Spatial.App
             var ok = condition();
             var step = new Step { scenario = scenario, name = name, ok = ok, ms = (Time.realtimeSinceStartup - t0) * 1000f, detail = detail?.Invoke() };
             _steps.Add(step);
-            Debug.Log($"[CursivisAuto] {scenario}/{name} {(ok ? "ok" : "FAIL")} {step.ms:0}ms {step.detail}");
+            // wall-clock stamp so a screen recording can be cut and captioned against these events
+            Debug.Log($"[CursivisAuto] {scenario}/{name} {(ok ? "ok" : "FAIL")} {step.ms:0}ms at={DateTime.Now:HH:mm:ss.fff} {step.detail}");
         }
 
         string Suggestions() => _app.LastSuggestions == null ? "(none)" : string.Join(" | ", _app.LastSuggestions.suggestions.Select(s => s.label)) + $" [{_app.LastSuggestions.contentType} via {_app.LastSuggestions.model}]";
@@ -123,6 +126,18 @@ namespace Cursivis.Spatial.App
             UI.CursivisTheme.Toggle();
             yield return Pause(2f);
             UI.CursivisTheme.Toggle();
+        }
+
+        IEnumerator Code()
+        {
+            const string sc = "code";
+            // keep a selection the user already made by hand (simulated pinch) on reviews.js; otherwise select it
+            if (_app.Selection == null || _app.Selection.Title != "reviews.js") _app.AutomationSelectWorkspaceText(2); // Texts: research, notice, code
+            yield return TriggerAndSuggest(sc);
+            yield return RunSuggestion(sc, 0, "bug");
+            yield return Pause(3f);
+            _app.Card.ScrollBy(0.5f);
+            yield return Pause(2.5f);
         }
 
         IEnumerator Spanish()
